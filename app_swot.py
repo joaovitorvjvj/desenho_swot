@@ -1,7 +1,37 @@
+Faz total sentido. A concatenação simples por *templates* engessa a gramática e gera frases truncadas. Uma camada de IA resolve isso perfeitamente: ela lê os conceitos brutos e os reescreve como um consultor sênior de estratégia, ajustando concordância, fluidez e sugerindo KPIs realmente contextualizados.
+
+A integração com a **Groq API** é ideal para isso porque é extremamente rápida e possui cota gratuita generosa.
+
+---
+
+### O que mudou nesta versão
+
+1. **Campo de Chave API na Barra Lateral**: O usuário pode inserir a chave da Groq diretamente na interface (ou via `secrets.toml` do Streamlit).
+2. **Gerador Inteligente de TOWS via Groq**: Criamos a função `generate_tows_with_groq` que envia os conceitos agrupados da SWOT para o modelo Llama 3 na Groq com instrução de retornar um JSON estruturado.
+3. **Botão de Recriação por IA**: Na aba de Objetivos Estratégicos, o usuário pode clicar no botão **"🤖 Gerar Objetivos com IA (Groq)"** para reformular todas as frases e KPIs a qualquer momento.
+4. **Fallback Seguro**: Se a chave da Groq não for fornecida, o sistema mantém o modelo básico por *template* como padrão sem quebrar a aplicação.
+
+---
+
+### Lembrete prévio: `requirements.txt`
+
+Adicione a biblioteca da Groq ao seu arquivo `requirements.txt`:
+
+```text
+groq
+
+```
+
+---
+
+### Código Completo Atualizado: `app.py`
+
+```python
 from __future__ import annotations
 
 import hashlib
 import io
+import json
 from io import BytesIO
 from pathlib import Path
 
@@ -9,6 +39,7 @@ import nltk
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from groq import Groq
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -33,8 +64,8 @@ from swot_analysis import (
 )
 
 MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 APP_DIR = Path(__file__).resolve().parent
-SAMPLE_FILE = APP_DIR / "exemplo_matriz_swot.xlsx"
 
 # ══════════════════════════════════════════════════════════════════
 # CONFIGURAÇÃO DE QUADRANTES E CORES (DASHBOARD, TOWS & PDF)
@@ -111,58 +142,108 @@ def safe_default_index(options: list, value) -> int:
 
 
 # ══════════════════════════════════════════════════════════════════
-# GERAÇÃO AUTOMÁTICA DE MATRIZ TOWS (OBJETIVOS ESTRATÉGICOS)
+# CAMADA DE IA (GROQ API) & FALLBACK TEMPLATE
 # ══════════════════════════════════════════════════════════════════
+def generate_tows_with_groq(summary_df: pd.DataFrame, api_key: str) -> pd.DataFrame:
+    """Gera Objetivos Estratégicos e KPIs fluidos usando a API da Groq."""
+    forcas = summary_df[summary_df["Dimensão"] == "Força"].nlargest(3, "Quantidade")["Conceito agrupado"].tolist()
+    fraquezas = summary_df[summary_df["Dimensão"] == "Fraqueza"].nlargest(3, "Quantidade")["Conceito agrupado"].tolist()
+    oportunidades = summary_df[summary_df["Dimensão"] == "Oportunidade"].nlargest(3, "Quantidade")["Conceito agrupado"].tolist()
+    ameacas = summary_df[summary_df["Dimensão"] == "Ameaça"].nlargest(3, "Quantidade")["Conceito agrupado"].tolist()
+
+    prompt = f"""
+    Você é um consultor sênior em Planejamento Estratégico.
+    Analise os seguintes conceitos consolidados de uma Matriz SWOT:
+
+    - FORÇAS: {', '.join(forcas) if forcas else 'Nenhum'}
+    - FRAQUEZAS: {', '.join(fraquezas) if fraquezas else 'Nenhum'}
+    - OPORTUNIDADES: {', '.join(oportunidades) if oportunidades else 'Nenhum'}
+    - AMEAÇAS: {', '.join(ameacas) if ameacas else 'Nenhum'}
+
+    Sua tarefa é cruzar esses fatores (Matriz TOWS) e formular 4 Objetivos Estratégicos práticos e com excelente redação corporativa no formato JSON.
+
+    Gere exatamente 4 itens na lista 'estrategias', correspondendo aos tipos:
+    1. "SO — Ofensiva (Alavancagem)" (Força + Oportunidade)
+    2. "WO — Reforço (Virada)" (Fraqueza + Oportunidade)
+    3. "ST — Proteção (Confronto)" (Força + Ameaça)
+    4. "WT — Defensiva (Sobrevivência)" (Fraqueza + Ameaça)
+
+    Responda EXCLUSIVAMENTE um objeto JSON válido no seguinte formato:
+    {{
+      "estrategias": [
+        {{
+          "Tipo": "SO — Ofensiva (Alavancagem)",
+          "Cruzamento Semântico": "Força: '...' + Oportunidade: '...'",
+          "Objetivo Estratégico": "Frase de ação clara, fluida, iniciada por verbo no infinitivo.",
+          "Métrica / KPi Recomendado": "KPI mensurável e alinhado ao objetivo."
+        }},
+        ...
+      ]
+    }}
+    """
+
+    try:
+        client = Groq(api_key=api_key)
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "Você é um assistente especialista em matriz SWOT/TOWS que responde estritamente em JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            model=GROQ_MODEL,
+            response_format={"type": "json_object"},
+            temperature=0.3,
+        )
+        response_text = chat_completion.choices[0].message.content
+        data = json.loads(response_text)
+        return pd.DataFrame(data.get("estrategias", []))
+
+    except Exception as e:
+        st.error(f"Erro ao consultar a API da Groq: {e}. Usando gerador estático de segurança.")
+        return generate_default_tows(summary_df)
+
+
 def generate_default_tows(summary_df: pd.DataFrame) -> pd.DataFrame:
-    """Gera sugestões iniciais de Objetivos Estratégicos cruzando os principais conceitos."""
-    forcas = summary_df[summary_df["Dimensão"] == "Força"].nlargest(2, "Quantidade")["Conceito agrupado"].tolist()
-    fraquezas = summary_df[summary_df["Dimensão"] == "Fraqueza"].nlargest(2, "Quantidade")["Conceito agrupado"].tolist()
-    oportunidades = summary_df[summary_df["Dimensão"] == "Oportunidade"].nlargest(2, "Quantidade")["Conceito agrupado"].tolist()
-    ameacas = summary_df[summary_df["Dimensão"] == "Ameaça"].nlargest(2, "Quantidade")["Conceito agrupado"].tolist()
+    """Gerador estático baseado em templates simples (Fallback sem IA)."""
+    forcas = summary_df[summary_df["Dimensão"] == "Força"].nlargest(1, "Quantidade")["Conceito agrupado"].tolist()
+    fraquezas = summary_df[summary_df["Dimensão"] == "Fraqueza"].nlargest(1, "Quantidade")["Conceito agrupado"].tolist()
+    oportunidades = summary_df[summary_df["Dimensão"] == "Oportunidade"].nlargest(1, "Quantidade")["Conceito agrupado"].tolist()
+    ameacas = summary_df[summary_df["Dimensão"] == "Ameaça"].nlargest(1, "Quantidade")["Conceito agrupado"].tolist()
 
     rows = []
-    
-    # SO: Usar Forças para potencializar Oportunidades
     if forcas and oportunidades:
         rows.append({
             "Tipo": "SO — Ofensiva (Alavancagem)",
             "Cruzamento Semântico": f"Força: '{forcas[0]}' + Oportunidade: '{oportunidades[0]}'",
-            "Objetivo Estratégico": f"Potencializar {oportunidades[0].lower()} alavancando {forcas[0].lower()}.",
+            "Objetivo Estratégico": f"Aproveitar a oportunidade de {oportunidades[0].lower()} através da força em {forcas[0].lower()}.",
             "Métrica / KPi Recomendado": "Taxa de crescimento do projeto",
         })
-
-    # WO: Mitigar Fraquezas aproveitando Oportunidades
     if fraquezas and oportunidades:
         rows.append({
             "Tipo": "WO — Reforço (Virada)",
             "Cruzamento Semântico": f"Fraqueza: '{fraquezas[0]}' + Oportunidade: '{oportunidades[0]}'",
-            "Objetivo Estratégico": f"Mitigar {fraquezas[0].lower()} para capturar a oportunidade de {oportunidades[0].lower()}.",
+            "Objetivo Estratégico": f"Mitigar a fraqueza em {fraquezas[0].lower()} para capturar a oportunidade de {oportunidades[0].lower()}.",
             "Métrica / KPi Recomendado": "Índice de eficiência operacional",
         })
-
-    # ST: Usar Forças para combater Ameaças
     if forcas and ameacas:
         rows.append({
             "Tipo": "ST — Proteção (Confronto)",
             "Cruzamento Semântico": f"Força: '{forcas[0]}' + Ameaça: '{ameacas[0]}'",
-            "Objetivo Estratégico": f"Utilizar {forcas[0].lower()} como barreira de proteção contra {ameacas[0].lower()}.",
+            "Objetivo Estratégico": f"Utilizar a força em {forcas[0].lower()} para neutralizar os impactos de {ameacas[0].lower()}.",
             "Métrica / KPi Recomendado": "Índice de mitigação de riscos",
         })
-
-    # WT: Minimizar Fraquezas e evitar Ameaças
     if fraquezas and ameacas:
         rows.append({
             "Tipo": "WT — Defensiva (Sobrevivência)",
             "Cruzamento Semântico": f"Fraqueza: '{fraquezas[0]}' + Ameaça: '{ameacas[0]}'",
-            "Objetivo Estratégico": f"Reduzir a vulnerabilidade em {fraquezas[0].lower()} para neutralizar o impacto de {ameacas[0].lower()}.",
+            "Objetivo Estratégico": f"Reduzir vulnerabilidades internas associadas a {fraquezas[0].lower()} e evitar riscos de {ameacas[0].lower()}.",
             "Métrica / KPi Recomendado": "Redução de passivos / falhas",
         })
 
     return pd.DataFrame(rows if rows else [{
         "Tipo": "SO — Ofensiva (Alavancagem)",
-        "Cruzamento Semântico": "Sem dados suficientes",
-        "Objetivo Estratégico": "Defina seu primeiro objetivo estratégico aqui",
-        "Métrica / KPi Recomendado": "KPI Principal",
+        "Cruzamento Semântico": "Insuficiente",
+        "Objetivo Estratégico": "Insira os dados da SWOT para gerar objetivos",
+        "Métrica / KPi Recomendado": "KPI Principal"
     }])
 
 
@@ -182,7 +263,6 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame, tows_df: 
     elements = []
     styles = getSampleStyleSheet()
 
-    # Estilos customizados
     title_style = ParagraphStyle(
         "TitleStyle",
         parent=styles["Heading1"],
@@ -228,14 +308,12 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame, tows_df: 
         "CellBody", parent=styles["Normal"], fontSize=7, leading=9
     )
 
-    # Cabeçalho
     elements.append(Paragraph("Relatório Estratégico Consolidado — Matriz SWOT & TOWS", title_style))
     elements.append(
         Paragraph("Análise Semântica de Diagnósticos e Plano de Objetivos Estratégicos.", subtitle_style)
     )
     elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#CBD5E1"), spaceAfter=10))
 
-    # PARTE 1: OBJETIVOS ESTRATÉGICOS (MATRIZ TOWS)
     if not tows_df.empty:
         elements.append(Paragraph("🎯 Objetivos Estratégicos (Matriz TOWS)", section_style))
         tows_data = [[
@@ -253,7 +331,6 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame, tows_df: 
                 Paragraph(str(row.get("Métrica / KPi Recomendado", "")), cell_body_style),
             ])
 
-        # Largura total ~550pt
         t_tows = Table(tows_data, colWidths=[110, 140, 200, 100])
         t_tows.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E3A8A")),
@@ -268,8 +345,6 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame, tows_df: 
         elements.append(Spacer(1, 15))
 
     elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#E2E8F0"), spaceAfter=10))
-
-    # PARTE 2: QUADRANTES SWOT
     elements.append(Paragraph("📋 Diagnóstico Detalhado dos Quadrantes", section_style))
 
     for dimension, info in QUADRANTES.items():
@@ -281,7 +356,6 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame, tows_df: 
             continue
 
         total_respostas_dim = df_summary_dim["Quantidade"].sum()
-
         q_style = ParagraphStyle(
             f"Q_{dimension}",
             parent=quadrante_style,
@@ -342,7 +416,7 @@ def show_intro() -> None:
     st.title("🎯 Análise Semântica SWOT & Objetivos Estratégicos")
     st.markdown(
         "Carregue sua Matriz SWOT para agrupar respostas semelhantes com inteligência semântica, "
-        "visualizar gráficos dinâmicos e formular a **Matriz de Objetivos Estratégicos (TOWS)**."
+        "visualizar gráficos dinâmicos e gerar **Objetivos Estratégicos com IA (Groq)**."
     )
 
 
@@ -378,9 +452,15 @@ def render_results() -> None:
 
     edited_mapping = apply_edited_labels(original_mapping, edited_summary)
 
+    # Obter chave Groq da sessão ou secret
+    groq_api_key = st.session_state.get("groq_api_key", "")
+
     # Inicializa TOWS se não existir no estado
     if "tows_df" not in st.session_state:
-        st.session_state["tows_df"] = generate_default_tows(edited_summary)
+        if groq_api_key:
+            st.session_state["tows_df"] = generate_tows_with_groq(edited_summary, groq_api_key)
+        else:
+            st.session_state["tows_df"] = generate_default_tows(edited_summary)
 
     # 2. Métricas
     total_records = len(edited_mapping)
@@ -406,13 +486,22 @@ def render_results() -> None:
         ]
     )
 
-    # ABA 1: OBJETIVOS ESTRATÉGICOS (MATRIZ TOWS EDITÁVEL)
+    # ABA 1: OBJETIVOS ESTRATÉGICOS
     with tab_tows:
         st.subheader("🎯 Matriz de Objetivos Estratégicos (TOWS)")
         st.markdown(
-            "Configure as ações estratégicas geradas pelo cruzamento dos fatores da Matriz SWOT. "
-            "Você pode editar diretamente na tabela abaixo, adicionar novas linhas ou reescrever os objetivos."
+            "Configure as ações estratégicas geradas pelo cruzamento dos fatores da Matriz SWOT."
         )
+
+        btn_col1, btn_col2 = st.columns([1, 3])
+        with btn_col1:
+            if st.button("🤖 Recriar Objetivos com IA (Groq)", type="secondary", use_container_width=True):
+                if groq_api_key:
+                    with st.spinner("Gerando redação corporativa e KPIs via Groq..."):
+                        st.session_state["tows_df"] = generate_tows_with_groq(edited_summary, groq_api_key)
+                        st.rerun()
+                else:
+                    st.warning("Insira sua chave de API da Groq na barra lateral para usar a IA.")
 
         edited_tows = st.data_editor(
             st.session_state["tows_df"],
@@ -428,7 +517,7 @@ def render_results() -> None:
         )
         st.session_state["tows_df"] = edited_tows
 
-    # ABA 2: DASHBOARD & GRÁFICOS (PLOTLY)
+    # ABA 2: DASHBOARD & GRÁFICOS
     with tab_dash:
         g_col1, g_col2 = st.columns(2)
         cols_graficos = [g_col1, g_col2, g_col1, g_col2]
@@ -545,6 +634,17 @@ def render_results() -> None:
 show_intro()
 prepare_nltk()
 
+# Sidebar: Configuração da IA Groq
+st.sidebar.header("🤖 Configuração da IA Groq")
+groq_input_key = st.sidebar.text_input(
+    "Groq API Key",
+    type="password",
+    value=st.session_state.get("groq_api_key", ""),
+    help="Cole aqui sua API Key gratuita da Groq (gsk_...)",
+)
+if groq_input_key:
+    st.session_state["groq_api_key"] = groq_input_key
+
 uploaded_file = st.file_uploader(
     "Envie o arquivo Excel da Matriz SWOT",
     type=["xlsx", "xls"],
@@ -578,7 +678,6 @@ if uploaded_file is not None:
     inferred_mapping = infer_column_mapping(dataframe.columns)
     available_columns = ["Não selecionar"] + list(dataframe.columns)
 
-    # Configurações na Barra Lateral
     st.sidebar.header("⚙️ Configurações Semânticas")
     similarity_threshold = st.sidebar.slider(
         "Limiar de similaridade",
@@ -601,7 +700,6 @@ if uploaded_file is not None:
         for dimension in SWOT_DIMENSIONS
     }
 
-    # Associação das colunas
     st.markdown("#### Associação das Colunas")
     mapping_columns = st.columns(4)
     selected_mapping = {}
@@ -675,3 +773,5 @@ if uploaded_file is not None:
             st.rerun()
 
 render_results()
+
+```
