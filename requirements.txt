@@ -1,6 +1,12 @@
 streamlit
 pandas
 openpyxl
+xlrd
 plotly
 reportlab
 unidecode
+nltk
+sentence-transformers
+scikit-learn
+numpy
+xlsxwriter
