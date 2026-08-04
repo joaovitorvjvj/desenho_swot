@@ -1,32 +1,3 @@
-Faz total sentido. A concatenação simples por *templates* engessa a gramática e gera frases truncadas. Uma camada de IA resolve isso perfeitamente: ela lê os conceitos brutos e os reescreve como um consultor sênior de estratégia, ajustando concordância, fluidez e sugerindo KPIs realmente contextualizados.
-
-A integração com a **Groq API** é ideal para isso porque é extremamente rápida e possui cota gratuita generosa.
-
----
-
-### O que mudou nesta versão
-
-1. **Campo de Chave API na Barra Lateral**: O usuário pode inserir a chave da Groq diretamente na interface (ou via `secrets.toml` do Streamlit).
-2. **Gerador Inteligente de TOWS via Groq**: Criamos a função `generate_tows_with_groq` que envia os conceitos agrupados da SWOT para o modelo Llama 3 na Groq com instrução de retornar um JSON estruturado.
-3. **Botão de Recriação por IA**: Na aba de Objetivos Estratégicos, o usuário pode clicar no botão **"🤖 Gerar Objetivos com IA (Groq)"** para reformular todas as frases e KPIs a qualquer momento.
-4. **Fallback Seguro**: Se a chave da Groq não for fornecida, o sistema mantém o modelo básico por *template* como padrão sem quebrar a aplicação.
-
----
-
-### Lembrete prévio: `requirements.txt`
-
-Adicione a biblioteca da Groq ao seu arquivo `requirements.txt`:
-
-```text
-groq
-
-```
-
----
-
-### Código Completo Atualizado: `app.py`
-
-```python
 from __future__ import annotations
 
 import hashlib
@@ -773,5 +744,3 @@ if uploaded_file is not None:
             st.rerun()
 
 render_results()
-
-```
