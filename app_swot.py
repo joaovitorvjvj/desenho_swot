@@ -1,6 +1,14 @@
+from __future__ import annotations
+
+import hashlib
+import io
 from io import BytesIO
+from pathlib import Path
+
+import nltk
 import pandas as pd
 import plotly.express as px
+import streamlit as st
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -12,45 +20,93 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
-import streamlit as st
+from sentence_transformers import SentenceTransformer
 
-ARQUIVO = "SWOT_Higienizado.xlsx"
-
-st.set_page_config(
-    page_title="Dashboard Matriz SWOT — EPROC/SEPLAN",
-    page_icon="🎯",
-    layout="wide",
+from swot_analysis import (
+    AnalysisConfig,
+    SWOT_DIMENSIONS,
+    SWOT_PLURAL,
+    analyze_swot_dataframe,
+    apply_edited_labels,
+    build_excel_bytes,
+    infer_column_mapping,
 )
 
+MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+APP_DIR = Path(__file__).resolve().parent
+SAMPLE_FILE = APP_DIR / "exemplo_matriz_swot.xlsx"
+
+# ══════════════════════════════════════════════════════════════════
+# CONFIGURAÇÃO DE QUADRANTES E CORES (DASHBOARD & PDF)
+# ══════════════════════════════════════════════════════════════════
 QUADRANTES = {
-    "Forcas": {
+    "Força": {
         "label": "💪 Forças",
         "cor": "#2E8B3A",
         "cor_plotly": "Greens_r",
     },
-    "Fraquezas": {
+    "Fraqueza": {
         "label": "⚠️ Fraquezas",
         "cor": "#E67E22",
         "cor_plotly": "Oranges_r",
     },
-    "Oportunidades": {
+    "Oportunidade": {
         "label": "🚀 Oportunidades",
         "cor": "#2980B9",
         "cor_plotly": "Blues_r",
     },
-    "Ameacas": {
+    "Ameaça": {
         "label": "🔴 Ameaças",
         "cor": "#C0392B",
         "cor_plotly": "Reds_r",
     },
 }
 
-# ══════════════════════════════════════════════════════════════════
-# FUNÇÃO PARA GERAR O PDF
-# ══════════════════════════════════════════════════════════════════
+st.set_page_config(
+    page_title="Análise Semântica & Dashboard Matriz SWOT",
+    page_icon="🎯",
+    layout="wide",
+)
 
 
-def gerar_pdf_swot(caminho_excel):
+# ══════════════════════════════════════════════════════════════════
+# INICIALIZAÇÃO DE RECURSOS E MODELOS
+# ══════════════════════════════════════════════════════════════════
+@st.cache_resource(show_spinner=False)
+def load_model(model_name: str) -> SentenceTransformer:
+    return SentenceTransformer(model_name)
+
+
+@st.cache_resource(show_spinner=False)
+def prepare_nltk() -> bool:
+    try:
+        nltk.data.find("corpora/stopwords")
+    except LookupError:
+        try:
+            nltk.download("stopwords", quiet=True)
+        except Exception:
+            return False
+    return True
+
+
+@st.cache_data(show_spinner=False)
+def read_excel_file(file_bytes: bytes, filename: str) -> pd.DataFrame:
+    suffix = Path(filename).suffix.casefold()
+    engine = "xlrd" if suffix == ".xls" else "openpyxl"
+    return pd.read_excel(io.BytesIO(file_bytes), engine=engine)
+
+
+def safe_default_index(options: list, value) -> int:
+    try:
+        return options.index(value)
+    except ValueError:
+        return 0
+
+
+# ══════════════════════════════════════════════════════════════════
+# GERADOR DE PDF (REPORTLAB INTEGRADO)
+# ══════════════════════════════════════════════════════════════════
+def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame) -> BytesIO:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -100,15 +156,13 @@ def gerar_pdf_swot(caminho_excel):
         "CellBody", parent=styles["Normal"], fontSize=7, leading=9
     )
 
-    # Cabeçalho
+    # Cabeçalho do PDF
     elements.append(
-        Paragraph(
-            "Relatório Consolidado da Matriz SWOT — EPROC/SEPLAN", title_style
-        )
+        Paragraph("Relatório Consolidado da Matriz SWOT", title_style)
     )
     elements.append(
         Paragraph(
-            "Resultado do processo de higienização e agrupamento semântico.",
+            "Resultado do processo de inteligência semântica e agrupamento de conceitos.",
             subtitle_style,
         )
     )
@@ -122,11 +176,18 @@ def gerar_pdf_swot(caminho_excel):
     )
 
     # Construção de tabelas por quadrante
-    for sheet, info in QUADRANTES.items():
-        df = pd.read_excel(caminho_excel, sheet_name=sheet)
+    for dimension, info in QUADRANTES.items():
+        df_summary_dim = summary_df[summary_df["Dimensão"] == dimension].sort_values(
+            ["Quantidade", "Grupo ID"], ascending=[False, True]
+        )
+
+        if df_summary_dim.empty:
+            continue
+
+        total_respostas_dim = df_summary_dim["Quantidade"].sum()
 
         q_style = ParagraphStyle(
-            f"Q_{sheet}",
+            f"Q_{dimension}",
             parent=quadrante_style,
             textColor=colors.HexColor(info["cor"]),
         )
@@ -142,15 +203,23 @@ def gerar_pdf_swot(caminho_excel):
         ]]
 
         # Linhas da tabela
-        for _, row in df.iterrows():
-            originais_formatadas = str(row["Respostas_Originais"]).replace(
-                " ||| ", "<br/>• "
-            )
+        for _, row in df_summary_dim.iterrows():
+            grupo_id = row["Grupo ID"]
+            conceito = row["Conceito agrupado"]
+            qtd = row["Quantidade"]
+            percentual = (qtd / total_respostas_dim * 100) if total_respostas_dim > 0 else 0.0
+
+            respostas_originais = mapping_df[
+                (mapping_df["Dimensão"] == dimension) & (mapping_df["Grupo ID"] == grupo_id)
+            ]["Dado bruto"].tolist()
+
+            originais_formatadas = "<br/>• ".join([str(r) for r in respostas_originais])
+
             data.append([
-                Paragraph(str(row["Rank"]), cell_body_style),
-                Paragraph(str(row["Conceito_Consolidado"]), cell_body_style),
-                Paragraph(str(row["Frequencia"]), cell_body_style),
-                Paragraph(f"{row['Percentual']}%", cell_body_style),
+                Paragraph(str(grupo_id), cell_body_style),
+                Paragraph(str(conceito), cell_body_style),
+                Paragraph(str(qtd), cell_body_style),
+                Paragraph(f"{percentual:.1f}%", cell_body_style),
                 Paragraph(f"• {originais_formatadas}", cell_body_style),
             ])
 
@@ -161,13 +230,7 @@ def gerar_pdf_swot(caminho_excel):
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(info["cor"])),
                 ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                (
-                    "GRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.5,
-                    colors.HexColor("#E2E8F0"),
-                ),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
                 (
                     "ROWBACKGROUNDS",
                     (0, 1),
@@ -187,89 +250,171 @@ def gerar_pdf_swot(caminho_excel):
 
 
 # ══════════════════════════════════════════════════════════════════
-# STREAMLIT UI
+# INTERFACE DO USUÁRIO
 # ══════════════════════════════════════════════════════════════════
-
-st.title("🎯 Matriz SWOT — EPROC/SEPLAN")
-st.markdown("Análise visual e relatório completo da matriz de diagnósticos.")
-
-try:
-    # Botão de exportação PDF na Barra Lateral
-    with st.sidebar:
-        st.header("📄 Exportar Dados")
+def show_intro() -> None:
+    st.title("🎯 Análise Semântica & Dashboard SWOT")
+    st.markdown(
+        "Envie um arquivo Excel com as respostas da sua Matriz SWOT. "
+        "A aplicação utiliza Inteligência Semântica para agrupar conceitos semelhantes, "
+        "gerar visualizações interativas e relatórios em **Excel** e **PDF**."
+    )
+    with st.expander("ℹ️ Formato esperado do arquivo"):
         st.markdown(
-            "Gere o relatório completo consolidado em PDF com todos os conceitos e respostas."
+            "A primeira linha deve conter os nomes das colunas (ex: **Forças**, **Fraquezas**, "
+            "**Oportunidades**, **Ameaças**). Células vazias são ignoradas."
+        )
+        st.dataframe(
+            pd.DataFrame(
+                {
+                    "Forças": ["Equipe qualificada", "Boa reputação no mercado"],
+                    "Fraquezas": ["Processos pouco documentados", "Dependência de poucos clientes"],
+                    "Oportunidades": ["Expansão para novos mercados", "Uso de inteligência artificial"],
+                    "Ameaças": ["Entrada de novos concorrentes", "Mudanças regulatórias"],
+                }
+            ),
+            hide_index=True,
+            use_container_width=True,
         )
 
-        pdf_bytes = gerar_pdf_swot(ARQUIVO)
+        if SAMPLE_FILE.exists():
+            st.download_button(
+                "📄 Baixar arquivo de exemplo",
+                data=SAMPLE_FILE.read_bytes(),
+                file_name=SAMPLE_FILE.name,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+
+
+def render_results() -> None:
+    analysis = st.session_state.get("swot_analysis")
+    if not analysis:
+        return
+
+    original_mapping = analysis["mapping"]
+    original_summary = analysis["summary"]
+    configs = analysis["configs"]
+    filename = analysis["filename"]
+
+    st.divider()
+
+    # 1. Editor de Conceitos (Expander de Acesso Rápido)
+    with st.expander("✏️ **Clique aqui para Revisar e Editar os Conceitos Agrupados**", expanded=False):
+        st.info(
+            "Os nomes na coluna **Conceito agrupado** podem ser editados abaixo. "
+            "Todas as edições atualizarão automaticamente os gráficos, as tabelas e os relatórios (Excel e PDF)."
+        )
+
+        edited_summary = st.data_editor(
+            original_summary,
+            key="concept_editor",
+            hide_index=True,
+            use_container_width=True,
+            disabled=["Dimensão", "Grupo ID", "Quantidade", "Exemplos"],
+            column_config={
+                "Dimensão": st.column_config.TextColumn(width="small"),
+                "Grupo ID": st.column_config.NumberColumn(format="%d", width="small"),
+                "Conceito agrupado": st.column_config.TextColumn(required=True, width="medium"),
+                "Quantidade": st.column_config.NumberColumn(format="%d", width="small"),
+                "Exemplos": st.column_config.TextColumn(width="large"),
+            },
+        )
+
+    edited_mapping = apply_edited_labels(original_mapping, edited_summary)
+
+    # 2. Downloads na Barra Lateral
+    with st.sidebar:
+        st.divider()
+        st.header("📄 Exportar Relatórios")
+        
+        # Gerar Excel
+        excel_bytes = build_excel_bytes(
+            edited_mapping,
+            edited_summary,
+            config_by_dimension=configs,
+            source_filename=filename,
+        )
         st.download_button(
-            label="📥 Baixar PDF Completo",
+            "📊 Baixar Excel Completo",
+            data=excel_bytes,
+            file_name=f"Analise_SWOT_{filename}",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True,
+        )
+
+        # Gerar PDF
+        pdf_bytes = gerar_pdf_swot(edited_summary, edited_mapping)
+        st.download_button(
+            label="📥 Baixar PDF Relatório",
             data=pdf_bytes,
-            file_name="Matriz_SWOT_EPROC_Consolidada.pdf",
+            file_name="Relatorio_Consolidado_SWOT.pdf",
             mime="application/pdf",
             use_container_width=True,
         )
-        st.divider()
 
-    # Abas para separar Visão Geral (Gráficos) e Tabelas Detalhadas
-    tab_dash, tab_matriz = st.tabs(
-        ["📊 Dashboard & Gráficos", "📋 Matriz Detalhada (Tabelas)"]
+    # 3. Métricas Resumidas
+    total_records = len(edited_mapping)
+    total_concepts = len(edited_summary)
+    metric_columns = st.columns(6)
+    metric_columns[0].metric("Registros analisados", total_records)
+    metric_columns[1].metric("Conceitos totais", total_concepts)
+    
+    for index, dimension in enumerate(SWOT_DIMENSIONS, start=2):
+        metric_columns[index].metric(
+            SWOT_PLURAL[dimension],
+            int((edited_summary["Dimensão"] == dimension).sum()),
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 4. Abas Principais (Dashboard vs Tabelas)
+    tab_dash, tab_matriz, tab_raw = st.tabs(
+        ["📊 Dashboard & Gráficos", "📋 Matriz Detalhada", "🔍 Dado Bruto Mapeado"]
     )
 
+    # ABA 1: DASHBOARD & GRÁFICOS (PLOTLY)
     with tab_dash:
-        # Métricas do Resumo
-        try:
-            df_resumo = pd.read_excel(ARQUIVO, sheet_name="Resumo")
-            cols_m = st.columns(len(df_resumo))
-            for idx, row in df_resumo.iterrows():
-                with cols_m[idx]:
-                    st.metric(
-                        label=row["Quadrante"],
-                        value=f"{row['Conceitos_Consolidados']} conceitos",
-                        delta=f"{row['Respostas_Brutas']} respostas",
-                    )
-        except Exception:
-            pass
-
-        st.divider()
-
-        # Gráficos de Barras Horizontais (Top Conceitos por Quadrante)
         g_col1, g_col2 = st.columns(2)
         cols_graficos = [g_col1, g_col2, g_col1, g_col2]
 
-        for idx, (sheet, info) in enumerate(QUADRANTES.items()):
-            df = pd.read_excel(ARQUIVO, sheet_name=sheet)
+        for idx, (dimension, info) in enumerate(QUADRANTES.items()):
+            df_dim = edited_summary[edited_summary["Dimensão"] == dimension].copy()
 
             with cols_graficos[idx]:
                 st.subheader(info["label"])
-                fig = px.bar(
-                    df.sort_values("Frequencia", ascending=True),
-                    x="Frequencia",
-                    y="Conceito_Consolidado",
-                    orientation="h",
-                    text="Frequencia",
-                    labels={
-                        "Frequencia": "Frequência",
-                        "Conceito_Consolidado": "Conceito",
-                    },
-                    color="Frequencia",
-                    color_continuous_scale=info["cor_plotly"],
-                )
-                fig.update_layout(
-                    showlegend=False,
-                    coloraxis_showscale=False,
-                    height=380,
-                    margin=dict(l=0, r=20, t=30, b=0),
-                )
-                fig.update_traces(textposition="outside")
-                st.plotly_chart(fig, use_container_width=True)
+                if df_dim.empty:
+                    st.info("Nenhum dado encontrado para esta dimensão.")
+                else:
+                    fig = px.bar(
+                        df_dim.sort_values("Quantidade", ascending=True),
+                        x="Quantidade",
+                        y="Conceito agrupado",
+                        orientation="h",
+                        text="Quantidade",
+                        labels={
+                            "Quantidade": "Frequência",
+                            "Conceito agrupado": "Conceito",
+                        },
+                        color="Quantidade",
+                        color_continuous_scale=info["cor_plotly"],
+                    )
+                    fig.update_layout(
+                        showlegend=False,
+                        coloraxis_showscale=False,
+                        height=380,
+                        margin=dict(l=0, r=20, t=30, b=0),
+                    )
+                    fig.update_traces(textposition="outside")
+                    st.plotly_chart(fig, use_container_width=True)
 
+    # ABA 2: MATRIZ DETALHADA (TABELAS DE RESUMO)
     with tab_matriz:
         m_col1, m_col2 = st.columns(2)
         cols_tabelas = [m_col1, m_col2, m_col1, m_col2]
 
-        for i, (sheet, info) in enumerate(QUADRANTES.items()):
-            df = pd.read_excel(ARQUIVO, sheet_name=sheet)
+        for i, (dimension, info) in enumerate(QUADRANTES.items()):
+            df_dim = edited_summary[edited_summary["Dimensão"] == dimension].copy()
 
             with cols_tabelas[i]:
                 st.markdown(
@@ -277,31 +422,174 @@ try:
                     unsafe_allow_html=True,
                 )
 
-                st.dataframe(
-                    df,
-                    column_config={
-                        "Rank": st.column_config.NumberColumn(
-                            "#", format="%d", width="small"
-                        ),
-                        "Conceito_Consolidado": st.column_config.TextColumn(
-                            "Conceito", width="medium"
-                        ),
-                        "Frequencia": st.column_config.NumberColumn(
-                            "Freq.", format="%d", width="small"
-                        ),
-                        "Percentual": st.column_config.NumberColumn(
-                            "%", format="%.1f%%", width="small"
-                        ),
-                        "Respostas_Originais": st.column_config.TextColumn(
-                            "Respostas Originais", width="large"
-                        ),
-                    },
-                    use_container_width=True,
-                    hide_index=True,
-                )
+                if df_dim.empty:
+                    st.write("Sem registros.")
+                else:
+                    total_dim = df_dim["Quantidade"].sum()
+                    df_dim["Percentual"] = (df_dim["Quantidade"] / total_dim * 100) if total_dim > 0 else 0
+
+                    st.dataframe(
+                        df_dim[["Grupo ID", "Conceito agrupado", "Quantidade", "Percentual", "Exemplos"]],
+                        column_config={
+                            "Grupo ID": st.column_config.NumberColumn("#", format="%d", width="small"),
+                            "Conceito agrupado": st.column_config.TextColumn("Conceito", width="medium"),
+                            "Quantidade": st.column_config.NumberColumn("Freq.", format="%d", width="small"),
+                            "Percentual": st.column_config.NumberColumn("%", format="%.1f%%", width="small"),
+                            "Exemplos": st.column_config.TextColumn("Exemplos de Respostas", width="large"),
+                        },
+                        use_container_width=True,
+                        hide_index=True,
+                    )
                 st.divider()
 
-except FileNotFoundError:
-    st.error(
-        f"Arquivo '{ARQUIVO}' não encontrado. Execute o `higieniza_swot.py` antes."
+    # ABA 3: MAPEAMENTO DE DADO BRUTO
+    with tab_raw:
+        st.markdown("#### Correlação entre Resposta Original e Conceito Agrupado")
+        st.dataframe(
+            edited_mapping[["Dimensão", "Linha original", "Dado bruto", "Grupo ID", "Conceito agrupado"]],
+            column_config={
+                "Linha original": st.column_config.NumberColumn("Linha Excel", format="%d"),
+            },
+            hide_index=True,
+            use_container_width=True,
+        )
+
+
+# ══════════════════════════════════════════════════════════════════
+# EXECUÇÃO DA APLICAÇÃO
+# ══════════════════════════════════════════════════════════════════
+show_intro()
+prepare_nltk()
+
+uploaded_file = st.file_uploader(
+    "Envie o arquivo Excel da Matriz SWOT",
+    type=["xlsx", "xls"],
+    accept_multiple_files=False,
+)
+
+if uploaded_file is not None:
+    uploaded_bytes = uploaded_file.getvalue()
+    file_signature = hashlib.sha256(uploaded_bytes).hexdigest()
+    previous_analysis = st.session_state.get("swot_analysis")
+    
+    if previous_analysis and previous_analysis.get("file_signature") != file_signature:
+        st.session_state.pop("swot_analysis", None)
+        st.session_state.pop("concept_editor", None)
+
+    try:
+        dataframe = read_excel_file(uploaded_bytes, uploaded_file.name)
+    except Exception as error:
+        st.error(f"Não foi possível ler o arquivo: {error}")
+        st.stop()
+
+    if dataframe.empty:
+        st.error("O arquivo não contém dados.")
+        st.stop()
+
+    st.success(f"Arquivo carregado com sucesso: {uploaded_file.name}")
+    with st.expander("🔍 Prévia das primeiras 20 linhas do arquivo"):
+        st.dataframe(dataframe.head(20), hide_index=True, use_container_width=True)
+
+    inferred_mapping = infer_column_mapping(dataframe.columns)
+    available_columns = ["Não selecionar"] + list(dataframe.columns)
+
+    # Configurações na Barra Lateral
+    st.sidebar.header("⚙️ Configurações Semânticas")
+    st.sidebar.caption(
+        "Ajuste o limiar de similaridade. Valores maiores criam grupos mais específicos."
     )
+    similarity_threshold = st.sidebar.slider(
+        "Limiar de similaridade",
+        min_value=0.50,
+        max_value=0.90,
+        value=0.72,
+        step=0.01,
+    )
+
+    st.sidebar.markdown("##### Máximo de conceitos por dimensão")
+    max_concepts = {
+        dimension: st.sidebar.number_input(
+            SWOT_PLURAL[dimension],
+            min_value=1,
+            max_value=15,
+            value=15,
+            step=1,
+            key=f"max_{dimension}",
+        )
+        for dimension in SWOT_DIMENSIONS
+    }
+
+    # Associação das colunas do Excel
+    st.markdown("#### Associação das Colunas")
+    st.caption("Confirme se as dimensões SWOT correspondem às colunas corretas do seu arquivo:")
+    mapping_columns = st.columns(4)
+    selected_mapping = {}
+    for container, dimension in zip(mapping_columns, SWOT_DIMENSIONS):
+        inferred = inferred_mapping.get(dimension)
+        default_value = inferred if inferred in dataframe.columns else "Não selecionar"
+        with container:
+            selected = st.selectbox(
+                SWOT_PLURAL[dimension],
+                options=available_columns,
+                index=safe_default_index(available_columns, default_value),
+                key=f"column_{dimension}_{uploaded_file.name}",
+            )
+            selected_mapping[dimension] = None if selected == "Não selecionar" else selected
+
+    selected_columns = [column for column in selected_mapping.values() if column is not None]
+    duplicate_columns = len(selected_columns) != len(set(selected_columns))
+    missing_dimensions = [dimension for dimension, column in selected_mapping.items() if column is None]
+
+    if duplicate_columns:
+        st.error("Cada dimensão SWOT deve usar uma coluna diferente.")
+    if missing_dimensions:
+        st.warning(
+            "Selecione as quatro colunas antes de iniciar: "
+            + ", ".join(SWOT_PLURAL[dimension] for dimension in missing_dimensions)
+            + "."
+        )
+
+    analyze_button = st.button(
+        "🚀 Processar e Analisar Matriz SWOT",
+        type="primary",
+        disabled=duplicate_columns or bool(missing_dimensions),
+        use_container_width=True,
+    )
+
+    if analyze_button:
+        configs = {
+            dimension: AnalysisConfig(
+                similarity_threshold=similarity_threshold,
+                max_concepts=int(max_concepts[dimension]),
+                model_name=MODEL_NAME,
+            )
+            for dimension in SWOT_DIMENSIONS
+        }
+
+        try:
+            with st.spinner("Agrupando conceitos e calculando similaridades semânticas..."):
+                model = load_model(MODEL_NAME)
+                mapping_df, summary_df = analyze_swot_dataframe(
+                    dataframe,
+                    selected_mapping,
+                    model,
+                    configs,
+                )
+        except Exception as error:
+            st.exception(error)
+            st.stop()
+
+        if mapping_df.empty:
+            st.error("Não foram encontrados textos válidos nas colunas selecionadas.")
+        else:
+            st.session_state["swot_analysis"] = {
+                "mapping": mapping_df,
+                "summary": summary_df,
+                "configs": configs,
+                "filename": uploaded_file.name,
+                "file_signature": file_signature,
+            }
+            st.session_state.pop("concept_editor", None)
+            st.rerun()
+
+render_results()
