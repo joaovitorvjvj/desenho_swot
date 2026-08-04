@@ -37,7 +37,7 @@ APP_DIR = Path(__file__).resolve().parent
 SAMPLE_FILE = APP_DIR / "exemplo_matriz_swot.xlsx"
 
 # ══════════════════════════════════════════════════════════════════
-# CONFIGURAÇÃO DE QUADRANTES E CORES (DASHBOARD & PDF)
+# CONFIGURAÇÃO DE QUADRANTES E CORES (DASHBOARD, TOWS & PDF)
 # ══════════════════════════════════════════════════════════════════
 QUADRANTES = {
     "Força": {
@@ -62,8 +62,15 @@ QUADRANTES = {
     },
 }
 
+TOWS_TIPOS = [
+    "SO — Ofensiva (Alavancagem)",
+    "WO — Reforço (Virada)",
+    "ST — Proteção (Confronto)",
+    "WT — Defensiva (Sobrevivência)",
+]
+
 st.set_page_config(
-    page_title="Análise Semântica & Dashboard Matriz SWOT",
+    page_title="Análise SWOT & Objetivos Estratégicos",
     page_icon="🎯",
     layout="wide",
 )
@@ -104,9 +111,65 @@ def safe_default_index(options: list, value) -> int:
 
 
 # ══════════════════════════════════════════════════════════════════
-# GERADOR DE PDF (REPORTLAB INTEGRADO)
+# GERAÇÃO AUTOMÁTICA DE MATRIZ TOWS (OBJETIVOS ESTRATÉGICOS)
 # ══════════════════════════════════════════════════════════════════
-def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame) -> BytesIO:
+def generate_default_tows(summary_df: pd.DataFrame) -> pd.DataFrame:
+    """Gera sugestões iniciais de Objetivos Estratégicos cruzando os principais conceitos."""
+    forcas = summary_df[summary_df["Dimensão"] == "Força"].nlargest(2, "Quantidade")["Conceito agrupado"].tolist()
+    fraquezas = summary_df[summary_df["Dimensão"] == "Fraqueza"].nlargest(2, "Quantidade")["Conceito agrupado"].tolist()
+    oportunidades = summary_df[summary_df["Dimensão"] == "Oportunidade"].nlargest(2, "Quantidade")["Conceito agrupado"].tolist()
+    ameacas = summary_df[summary_df["Dimensão"] == "Ameaça"].nlargest(2, "Quantidade")["Conceito agrupado"].tolist()
+
+    rows = []
+    
+    # SO: Usar Forças para potencializar Oportunidades
+    if forcas and oportunidades:
+        rows.append({
+            "Tipo": "SO — Ofensiva (Alavancagem)",
+            "Cruzamento Semântico": f"Força: '{forcas[0]}' + Oportunidade: '{oportunidades[0]}'",
+            "Objetivo Estratégico": f"Potencializar {oportunidades[0].lower()} alavancando {forcas[0].lower()}.",
+            "Métrica / KPi Recomendado": "Taxa de crescimento do projeto",
+        })
+
+    # WO: Mitigar Fraquezas aproveitando Oportunidades
+    if fraquezas and oportunidades:
+        rows.append({
+            "Tipo": "WO — Reforço (Virada)",
+            "Cruzamento Semântico": f"Fraqueza: '{fraquezas[0]}' + Oportunidade: '{oportunidades[0]}'",
+            "Objetivo Estratégico": f"Mitigar {fraquezas[0].lower()} para capturar a oportunidade de {oportunidades[0].lower()}.",
+            "Métrica / KPi Recomendado": "Índice de eficiência operacional",
+        })
+
+    # ST: Usar Forças para combater Ameaças
+    if forcas and ameacas:
+        rows.append({
+            "Tipo": "ST — Proteção (Confronto)",
+            "Cruzamento Semântico": f"Força: '{forcas[0]}' + Ameaça: '{ameacas[0]}'",
+            "Objetivo Estratégico": f"Utilizar {forcas[0].lower()} como barreira de proteção contra {ameacas[0].lower()}.",
+            "Métrica / KPi Recomendado": "Índice de mitigação de riscos",
+        })
+
+    # WT: Minimizar Fraquezas e evitar Ameaças
+    if fraquezas and ameacas:
+        rows.append({
+            "Tipo": "WT — Defensiva (Sobrevivência)",
+            "Cruzamento Semântico": f"Fraqueza: '{fraquezas[0]}' + Ameaça: '{ameacas[0]}'",
+            "Objetivo Estratégico": f"Reduzir a vulnerabilidade em {fraquezas[0].lower()} para neutralizar o impacto de {ameacas[0].lower()}.",
+            "Métrica / KPi Recomendado": "Redução de passivos / falhas",
+        })
+
+    return pd.DataFrame(rows if rows else [{
+        "Tipo": "SO — Ofensiva (Alavancagem)",
+        "Cruzamento Semântico": "Sem dados suficientes",
+        "Objetivo Estratégico": "Defina seu primeiro objetivo estratégico aqui",
+        "Métrica / KPi Recomendado": "KPI Principal",
+    }])
+
+
+# ══════════════════════════════════════════════════════════════════
+# GERADOR DE PDF (REPORTLAB INTEGRADO COM TOWS)
+# ══════════════════════════════════════════════════════════════════
+def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame, tows_df: pd.DataFrame) -> BytesIO:
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -136,13 +199,22 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame) -> BytesI
         alignment=1,
         spaceAfter=15,
     )
+    section_style = ParagraphStyle(
+        "SectionStyle",
+        parent=styles["Heading2"],
+        fontSize=13,
+        leading=16,
+        textColor=colors.HexColor("#0F172A"),
+        spaceBefore=14,
+        spaceAfter=6,
+    )
     quadrante_style = ParagraphStyle(
         "QuadranteStyle",
-        parent=styles["Heading2"],
-        fontSize=12,
-        leading=15,
-        spaceBefore=12,
-        spaceAfter=6,
+        parent=styles["Heading3"],
+        fontSize=11,
+        leading=14,
+        spaceBefore=10,
+        spaceAfter=4,
     )
     cell_header_style = ParagraphStyle(
         "CellHeader",
@@ -156,26 +228,50 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame) -> BytesI
         "CellBody", parent=styles["Normal"], fontSize=7, leading=9
     )
 
-    # Cabeçalho do PDF
+    # Cabeçalho
+    elements.append(Paragraph("Relatório Estratégico Consolidado — Matriz SWOT & TOWS", title_style))
     elements.append(
-        Paragraph("Relatório Consolidado da Matriz SWOT", title_style)
+        Paragraph("Análise Semântica de Diagnósticos e Plano de Objetivos Estratégicos.", subtitle_style)
     )
-    elements.append(
-        Paragraph(
-            "Resultado do processo de inteligência semântica e agrupamento de conceitos.",
-            subtitle_style,
-        )
-    )
-    elements.append(
-        HRFlowable(
-            width="100%",
-            thickness=1,
-            color=colors.HexColor("#CBD5E1"),
-            spaceAfter=10,
-        )
-    )
+    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#CBD5E1"), spaceAfter=10))
 
-    # Construção de tabelas por quadrante
+    # PARTE 1: OBJETIVOS ESTRATÉGICOS (MATRIZ TOWS)
+    if not tows_df.empty:
+        elements.append(Paragraph("🎯 Objetivos Estratégicos (Matriz TOWS)", section_style))
+        tows_data = [[
+            Paragraph("Tipo de Estratégia", cell_header_style),
+            Paragraph("Cruzamento SWOT", cell_header_style),
+            Paragraph("Objetivo Estratégico", cell_header_style),
+            Paragraph("KPI / Métrica", cell_header_style),
+        ]]
+
+        for _, row in tows_df.iterrows():
+            tows_data.append([
+                Paragraph(str(row.get("Tipo", "")), cell_body_style),
+                Paragraph(str(row.get("Cruzamento Semântico", "")), cell_body_style),
+                Paragraph(str(row.get("Objetivo Estratégico", "")), cell_body_style),
+                Paragraph(str(row.get("Métrica / KPi Recomendado", "")), cell_body_style),
+            ])
+
+        # Largura total ~550pt
+        t_tows = Table(tows_data, colWidths=[110, 140, 200, 100])
+        t_tows.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1E3A8A")),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F1F5F9")]),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(t_tows)
+        elements.append(Spacer(1, 15))
+
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#E2E8F0"), spaceAfter=10))
+
+    # PARTE 2: QUADRANTES SWOT
+    elements.append(Paragraph("📋 Diagnóstico Detalhado dos Quadrantes", section_style))
+
     for dimension, info in QUADRANTES.items():
         df_summary_dim = summary_df[summary_df["Dimensão"] == dimension].sort_values(
             ["Quantidade", "Grupo ID"], ascending=[False, True]
@@ -193,7 +289,6 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame) -> BytesI
         )
         elements.append(Paragraph(info["label"], q_style))
 
-        # Cabeçalho da tabela
         data = [[
             Paragraph("#", cell_header_style),
             Paragraph("Conceito Consolidado", cell_header_style),
@@ -202,7 +297,6 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame) -> BytesI
             Paragraph("Respostas Originais Agrupadas", cell_header_style),
         ]]
 
-        # Linhas da tabela
         for _, row in df_summary_dim.iterrows():
             grupo_id = row["Grupo ID"]
             conceito = row["Conceito agrupado"]
@@ -223,24 +317,16 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame) -> BytesI
                 Paragraph(f"• {originais_formatadas}", cell_body_style),
             ])
 
-        # Largura das colunas (Total A4 ~550pt)
         t = Table(data, colWidths=[20, 140, 35, 35, 320])
-        t.setStyle(
-            TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(info["cor"])),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
-                (
-                    "ROWBACKGROUNDS",
-                    (0, 1),
-                    (-1, -1),
-                    [colors.white, colors.HexColor("#F8FAFC")],
-                ),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ])
-        )
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(info["cor"])),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ]))
         elements.append(t)
         elements.append(Spacer(1, 10))
 
@@ -250,40 +336,14 @@ def gerar_pdf_swot(summary_df: pd.DataFrame, mapping_df: pd.DataFrame) -> BytesI
 
 
 # ══════════════════════════════════════════════════════════════════
-# INTERFACE DO USUÁRIO
+# INTERFACE DO USUÁRIO & RENDERIZAÇÃO
 # ══════════════════════════════════════════════════════════════════
 def show_intro() -> None:
-    st.title("🎯 Análise Semântica & Dashboard SWOT")
+    st.title("🎯 Análise Semântica SWOT & Objetivos Estratégicos")
     st.markdown(
-        "Envie um arquivo Excel com as respostas da sua Matriz SWOT. "
-        "A aplicação utiliza Inteligência Semântica para agrupar conceitos semelhantes, "
-        "gerar visualizações interativas e relatórios em **Excel** e **PDF**."
+        "Carregue sua Matriz SWOT para agrupar respostas semelhantes com inteligência semântica, "
+        "visualizar gráficos dinâmicos e formular a **Matriz de Objetivos Estratégicos (TOWS)**."
     )
-    with st.expander("ℹ️ Formato esperado do arquivo"):
-        st.markdown(
-            "A primeira linha deve conter os nomes das colunas (ex: **Forças**, **Fraquezas**, "
-            "**Oportunidades**, **Ameaças**). Células vazias são ignoradas."
-        )
-        st.dataframe(
-            pd.DataFrame(
-                {
-                    "Forças": ["Equipe qualificada", "Boa reputação no mercado"],
-                    "Fraquezas": ["Processos pouco documentados", "Dependência de poucos clientes"],
-                    "Oportunidades": ["Expansão para novos mercados", "Uso de inteligência artificial"],
-                    "Ameaças": ["Entrada de novos concorrentes", "Mudanças regulatórias"],
-                }
-            ),
-            hide_index=True,
-            use_container_width=True,
-        )
-
-        if SAMPLE_FILE.exists():
-            st.download_button(
-                "📄 Baixar arquivo de exemplo",
-                data=SAMPLE_FILE.read_bytes(),
-                file_name=SAMPLE_FILE.name,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
 
 
 def render_results() -> None:
@@ -298,13 +358,9 @@ def render_results() -> None:
 
     st.divider()
 
-    # 1. Editor de Conceitos (Expander de Acesso Rápido)
-    with st.expander("✏️ **Clique aqui para Revisar e Editar os Conceitos Agrupados**", expanded=False):
-        st.info(
-            "Os nomes na coluna **Conceito agrupado** podem ser editados abaixo. "
-            "Todas as edições atualizarão automaticamente os gráficos, as tabelas e os relatórios (Excel e PDF)."
-        )
-
+    # 1. Editor de Conceitos Agrupados
+    with st.expander("✏️ **Revisar e Editar Conceitos Agrupados**", expanded=False):
+        st.info("Altere o nome dos conceitos consolidados. As alterações sincronizam todo o dashboard.")
         edited_summary = st.data_editor(
             original_summary,
             key="concept_editor",
@@ -322,44 +378,16 @@ def render_results() -> None:
 
     edited_mapping = apply_edited_labels(original_mapping, edited_summary)
 
-    # 2. Downloads na Barra Lateral
-    with st.sidebar:
-        st.divider()
-        st.header("📄 Exportar Relatórios")
-        
-        # Gerar Excel
-        excel_bytes = build_excel_bytes(
-            edited_mapping,
-            edited_summary,
-            config_by_dimension=configs,
-            source_filename=filename,
-        )
-        st.download_button(
-            "📊 Baixar Excel Completo",
-            data=excel_bytes,
-            file_name=f"Analise_SWOT_{filename}",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type="primary",
-            use_container_width=True,
-        )
+    # Inicializa TOWS se não existir no estado
+    if "tows_df" not in st.session_state:
+        st.session_state["tows_df"] = generate_default_tows(edited_summary)
 
-        # Gerar PDF
-        pdf_bytes = gerar_pdf_swot(edited_summary, edited_mapping)
-        st.download_button(
-            label="📥 Baixar PDF Relatório",
-            data=pdf_bytes,
-            file_name="Relatorio_Consolidado_SWOT.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
-
-    # 3. Métricas Resumidas
+    # 2. Métricas
     total_records = len(edited_mapping)
     total_concepts = len(edited_summary)
     metric_columns = st.columns(6)
     metric_columns[0].metric("Registros analisados", total_records)
     metric_columns[1].metric("Conceitos totais", total_concepts)
-    
     for index, dimension in enumerate(SWOT_DIMENSIONS, start=2):
         metric_columns[index].metric(
             SWOT_PLURAL[dimension],
@@ -368,12 +396,39 @@ def render_results() -> None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # 4. Abas Principais (Dashboard vs Tabelas)
-    tab_dash, tab_matriz, tab_raw = st.tabs(
-        ["📊 Dashboard & Gráficos", "📋 Matriz Detalhada", "🔍 Dado Bruto Mapeado"]
+    # 3. Abas Principais
+    tab_tows, tab_dash, tab_matriz, tab_raw = st.tabs(
+        [
+            "🎯 Objetivos Estratégicos (Matriz TOWS)",
+            "📊 Dashboard & Gráficos",
+            "📋 Matriz Detalhada",
+            "🔍 Dado Bruto Mapeado",
+        ]
     )
 
-    # ABA 1: DASHBOARD & GRÁFICOS (PLOTLY)
+    # ABA 1: OBJETIVOS ESTRATÉGICOS (MATRIZ TOWS EDITÁVEL)
+    with tab_tows:
+        st.subheader("🎯 Matriz de Objetivos Estratégicos (TOWS)")
+        st.markdown(
+            "Configure as ações estratégicas geradas pelo cruzamento dos fatores da Matriz SWOT. "
+            "Você pode editar diretamente na tabela abaixo, adicionar novas linhas ou reescrever os objetivos."
+        )
+
+        edited_tows = st.data_editor(
+            st.session_state["tows_df"],
+            key="tows_editor",
+            num_rows="dynamic",
+            use_container_width=True,
+            column_config={
+                "Tipo": st.column_config.SelectboxColumn("Tipo de Estratégia", options=TOWS_TIPOS, required=True, width="medium"),
+                "Cruzamento Semântico": st.column_config.TextColumn("Cruzamento de Fatores SWOT", width="large"),
+                "Objetivo Estratégico": st.column_config.TextColumn("Objetivo Estratégico", width="large", required=True),
+                "Métrica / KPi Recomendado": st.column_config.TextColumn("KPI / Métrica", width="medium"),
+            },
+        )
+        st.session_state["tows_df"] = edited_tows
+
+    # ABA 2: DASHBOARD & GRÁFICOS (PLOTLY)
     with tab_dash:
         g_col1, g_col2 = st.columns(2)
         cols_graficos = [g_col1, g_col2, g_col1, g_col2]
@@ -408,7 +463,7 @@ def render_results() -> None:
                     fig.update_traces(textposition="outside")
                     st.plotly_chart(fig, use_container_width=True)
 
-    # ABA 2: MATRIZ DETALHADA (TABELAS DE RESUMO)
+    # ABA 3: MATRIZ DETALHADA
     with tab_matriz:
         m_col1, m_col2 = st.columns(2)
         cols_tabelas = [m_col1, m_col2, m_col1, m_col2]
@@ -442,15 +497,44 @@ def render_results() -> None:
                     )
                 st.divider()
 
-    # ABA 3: MAPEAMENTO DE DADO BRUTO
+    # ABA 4: DADO BRUTO MAPEADO
     with tab_raw:
-        st.markdown("#### Correlação entre Resposta Original e Conceito Agrupado")
+        st.markdown("#### Mapeamento Completo de Respostas Brutas")
         st.dataframe(
             edited_mapping[["Dimensão", "Linha original", "Dado bruto", "Grupo ID", "Conceito agrupado"]],
             column_config={
                 "Linha original": st.column_config.NumberColumn("Linha Excel", format="%d"),
             },
             hide_index=True,
+            use_container_width=True,
+        )
+
+    # 4. Downloads na Barra Lateral
+    with st.sidebar:
+        st.divider()
+        st.header("📄 Exportar Resultados")
+
+        excel_bytes = build_excel_bytes(
+            edited_mapping,
+            edited_summary,
+            config_by_dimension=configs,
+            source_filename=filename,
+        )
+        st.download_button(
+            "📊 Baixar Excel Completo",
+            data=excel_bytes,
+            file_name=f"Analise_SWOT_{filename}",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True,
+        )
+
+        pdf_bytes = gerar_pdf_swot(edited_summary, edited_mapping, edited_tows)
+        st.download_button(
+            label="📥 Baixar PDF com Objetivos Estratégicos",
+            data=pdf_bytes,
+            file_name="Relatorio_Estrategico_SWOT_TOWS.pdf",
+            mime="application/pdf",
             use_container_width=True,
         )
 
@@ -471,10 +555,11 @@ if uploaded_file is not None:
     uploaded_bytes = uploaded_file.getvalue()
     file_signature = hashlib.sha256(uploaded_bytes).hexdigest()
     previous_analysis = st.session_state.get("swot_analysis")
-    
+
     if previous_analysis and previous_analysis.get("file_signature") != file_signature:
         st.session_state.pop("swot_analysis", None)
         st.session_state.pop("concept_editor", None)
+        st.session_state.pop("tows_df", None)
 
     try:
         dataframe = read_excel_file(uploaded_bytes, uploaded_file.name)
@@ -487,7 +572,7 @@ if uploaded_file is not None:
         st.stop()
 
     st.success(f"Arquivo carregado com sucesso: {uploaded_file.name}")
-    with st.expander("🔍 Prévia das primeiras 20 linhas do arquivo"):
+    with st.expander("🔍 Prévia das primeiras 20 linhas"):
         st.dataframe(dataframe.head(20), hide_index=True, use_container_width=True)
 
     inferred_mapping = infer_column_mapping(dataframe.columns)
@@ -495,9 +580,6 @@ if uploaded_file is not None:
 
     # Configurações na Barra Lateral
     st.sidebar.header("⚙️ Configurações Semânticas")
-    st.sidebar.caption(
-        "Ajuste o limiar de similaridade. Valores maiores criam grupos mais específicos."
-    )
     similarity_threshold = st.sidebar.slider(
         "Limiar de similaridade",
         min_value=0.50,
@@ -519,9 +601,8 @@ if uploaded_file is not None:
         for dimension in SWOT_DIMENSIONS
     }
 
-    # Associação das colunas do Excel
+    # Associação das colunas
     st.markdown("#### Associação das Colunas")
-    st.caption("Confirme se as dimensões SWOT correspondem às colunas corretas do seu arquivo:")
     mapping_columns = st.columns(4)
     selected_mapping = {}
     for container, dimension in zip(mapping_columns, SWOT_DIMENSIONS):
@@ -550,7 +631,7 @@ if uploaded_file is not None:
         )
 
     analyze_button = st.button(
-        "🚀 Processar e Analisar Matriz SWOT",
+        "🚀 Processar e Gerar Objetivos Estratégicos",
         type="primary",
         disabled=duplicate_columns or bool(missing_dimensions),
         use_container_width=True,
@@ -567,7 +648,7 @@ if uploaded_file is not None:
         }
 
         try:
-            with st.spinner("Agrupando conceitos e calculando similaridades semânticas..."):
+            with st.spinner("Agrupando conceitos e formulando matriz de objetivos estratégicos..."):
                 model = load_model(MODEL_NAME)
                 mapping_df, summary_df = analyze_swot_dataframe(
                     dataframe,
@@ -590,6 +671,7 @@ if uploaded_file is not None:
                 "file_signature": file_signature,
             }
             st.session_state.pop("concept_editor", None)
+            st.session_state.pop("tows_df", None)
             st.rerun()
 
 render_results()
