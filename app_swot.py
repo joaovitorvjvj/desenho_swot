@@ -4,72 +4,178 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # ══════════════════════════════════════════════════════════════════
-# CONFIGURAÇÃO DA PÁGINA & ESTILOS
+# CONFIGURAÇÃO DA PÁGINA
 # ══════════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="EPROC/SEPLAN - Planejamento Estratégico",
+    page_title="EPROC/SEPLAN — Planejamento Estratégico",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.markdown("""
-    <style>
-    .main-title { font-size: 28px; font-weight: 800; color: #1E3A8A; margin-bottom: 0px; }
-    .sub-title { font-size: 16px; color: #64748B; margin-bottom: 20px; }
-    .card-box {
-        background-color: #F8FAFC; padding: 18px; border-radius: 10px;
-        border-left: 6px solid #1E3A8A; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 15px;
-    }
-    .note-card {
-        background-color: #FFFBEB; border: 1px solid #F59E0B; padding: 14px;
-        border-radius: 10px; margin-bottom: 15px; font-size: 14px; color: #78350F;
-    }
-    .source-card {
-        background-color: #F0FDF4; border: 1px solid #22C55E; padding: 14px;
-        border-radius: 10px; margin-bottom: 15px; font-size: 14px; color: #14532D;
-    }
-    .metric-badge {
-        background-color: #DBEAFE; color: #1E40AF; padding: 4px 10px;
-        border-radius: 12px; font-weight: bold; font-size: 12px;
-    }
-    .layer-box {
-        color: white; padding: 14px; border-radius: 8px; font-weight: bold;
-        text-align: center; margin-bottom: 4px;
-    }
-    </style>
+# ══════════════════════════════════════════════════════════════════
+# DESIGN TOKENS
+# ══════════════════════════════════════════════════════════════════
+ORANGE = "#EC671C"
+DARK_BLUE = "#0D1B2A"
+WHITE = "#FFFFFF"
+LIGHT_GRAY = "#F4F5F7"
+
+# Gradiente de progressão: da base (azul escuro) ao topo (laranja) —
+# usado no Mapa Estratégico para reforçar visualmente "da fundação ao resultado"
+LAYER_COLORS = {1: "#0D1B2A", 2: "#3D4F63", 3: "#B85C2E", 4: "#EC671C"}
+
+STEPS = [
+    {"label": "Diagnóstico", "icon": "📊", "sub": "SWOT consolidada"},
+    {"label": "Cruzamentos", "icon": "🔗", "sub": "Matriz TOWS"},
+    {"label": "Objetivos", "icon": "🎯", "sub": "Formato BSC"},
+    {"label": "Mapa", "icon": "🗺️", "sub": "Causa e efeito"},
+    {"label": "Ações", "icon": "📋", "sub": "Plano de execução"},
+    {"label": "Indicadores", "icon": "📈", "sub": "KPIs"},
+    {"label": "Metodologia", "icon": "ℹ️", "sub": "Fontes e critérios"},
+]
+
+# ══════════════════════════════════════════════════════════════════
+# ESTILO GLOBAL
+# ══════════════════════════════════════════════════════════════════
+st.markdown(f"""
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+    html, body, [class*="css"] {{
+        font-family: 'Roboto Condensed', sans-serif;
+    }}
+    .stApp {{
+        background-color: {LIGHT_GRAY};
+    }}
+    h1, h2, h3, .brand-title, .layer-title {{
+        font-family: 'Bebas Neue', sans-serif;
+        letter-spacing: 1px;
+    }}
+
+    /* ---------- HEADER ---------- */
+    .brand-title {{
+        font-size: 42px;
+        color: {DARK_BLUE};
+        text-transform: uppercase;
+        margin-bottom: 0px;
+        line-height: 1;
+    }}
+    .brand-sub {{
+        font-family: 'Roboto Condensed', sans-serif;
+        font-size: 15px;
+        color: #64748B;
+        margin-top: 4px;
+        margin-bottom: 22px;
+        font-weight: 300;
+    }}
+
+    /* ---------- STEPPER ---------- */
+    .stepper-wrap {{ margin-bottom: 6px; }}
+    .stepper-track {{
+        position: relative;
+        height: 4px;
+        background: #E2E4E9;
+        border-radius: 4px;
+        margin: 0 24px 18px 24px;
+    }}
+    .stepper-fill {{
+        position: absolute; top: 0; left: 0; height: 4px;
+        background: linear-gradient(90deg, {DARK_BLUE}, {ORANGE});
+        border-radius: 4px;
+        transition: width 0.4s ease;
+    }}
+    .step-node {{
+        text-align: center;
+        font-family: 'Roboto Condensed', sans-serif;
+    }}
+    .step-circle {{
+        width: 40px; height: 40px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 6px auto;
+        font-size: 17px;
+        border: 2px solid #D8DBE2;
+        background: {WHITE};
+        color: #94A0B3;
+    }}
+    .step-circle.done {{
+        background: {DARK_BLUE}; border-color: {DARK_BLUE}; color: {WHITE};
+    }}
+    .step-circle.current {{
+        background: {ORANGE}; border-color: {ORANGE}; color: {WHITE};
+        box-shadow: 0 0 0 5px rgba(236,103,28,0.18);
+    }}
+    .step-label {{
+        font-size: 12.5px; font-weight: 700; color: {DARK_BLUE};
+        text-transform: uppercase;
+    }}
+    .step-sub {{
+        font-size: 10.5px; color: #8A93A3;
+    }}
+
+    /* ---------- CARDS ---------- */
+    .card-box {{
+        background-color: {WHITE};
+        padding: 18px 20px;
+        border-radius: 10px;
+        border-left: 6px solid {DARK_BLUE};
+        box-shadow: 0 2px 10px rgba(13,27,42,0.06);
+        margin-bottom: 14px;
+    }}
+    .card-box.accent {{ border-left-color: {ORANGE}; }}
+    .note-card {{
+        background-color: #FFF4EC; border: 1px solid {ORANGE};
+        padding: 14px 16px; border-radius: 10px; margin-bottom: 15px;
+        font-size: 14px; color: #7A3B12;
+    }}
+    .source-card {{
+        background-color: #EEF2F6; border: 1px solid {DARK_BLUE};
+        padding: 16px 18px; border-radius: 10px; margin-bottom: 15px;
+        font-size: 14px; color: {DARK_BLUE};
+    }}
+    .metric-badge {{
+        background-color: {DARK_BLUE}; color: {WHITE}; padding: 4px 12px;
+        border-radius: 20px; font-weight: 700; font-size: 11px;
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }}
+    .metric-badge.orange {{ background-color: {ORANGE}; }}
+
+    /* ---------- MAP LAYERS ---------- */
+    .layer-header {{
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 15px; letter-spacing: 1.5px;
+        color: {DARK_BLUE}; margin: 4px 0 8px 0;
+    }}
+    .node-card {{
+        color: {WHITE}; padding: 14px 12px; border-radius: 10px;
+        text-align: center; font-family: 'Roboto Condensed', sans-serif;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+        min-height: 78px; display: flex; flex-direction: column; justify-content: center;
+    }}
+    .node-num {{ font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 1px; }}
+    .node-persp {{ font-size: 12px; opacity: 0.9; }}
+    .flow-arrow {{ text-align:center; font-size: 22px; color: {ORANGE}; margin: 2px 0 10px 0; }}
+
+    /* ---------- KPI CARDS (tab 6) ---------- */
+    .kpi-icon-card {{
+        background: {WHITE}; border-radius: 12px; padding: 16px;
+        box-shadow: 0 3px 12px rgba(13,27,42,0.08); margin-bottom: 14px;
+        border-top: 4px solid {ORANGE};
+    }}
+    .kpi-icon {{ font-size: 26px; }}
+    .kpi-title {{ font-family: 'Bebas Neue', sans-serif; font-size: 17px; color: {DARK_BLUE}; letter-spacing: 0.5px; }}
+    .kpi-meta {{ font-size: 12.5px; color: #64748B; }}
+
+    /* ---------- NAV BUTTONS ---------- */
+    div.stButton > button {{
+        border-radius: 8px; font-family: 'Roboto Condensed', sans-serif; font-weight: 700;
+    }}
+</style>
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════
-# CABEÇALHO & SIDEBAR
-# ══════════════════════════════════════════════════════════════════
-st.markdown('<div class="main-title">🎯 Escritório de Gestão e Desburocratização de Processos (EPROC/SEPLAN)</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Plano Estratégico 2026 — Metodologia EPROC/SEPLAN (BSC + SWOT) | Consolidado das Etapas 1 a 4</div>', unsafe_allow_html=True)
-
-with st.sidebar:
-    st.image("https://img.icons8.com/color/96/strategy.png", width=70)
-    st.title("EPROC/SEPLAN")
-    st.markdown("**Missão:**")
-    st.caption("Conectar pessoas e tecnologias, por meio da Gestão por Processos de Negócio, proporcionando a melhoria dos serviços prestados à sociedade catarinense.")
-    st.markdown("**Visão:**")
-    st.caption("Consolidar a cultura de Gestão por Processos, com foco na experiência do usuário, como estratégia para melhoria dos serviços prestados pelo Governo do Estado de SC.")
-    st.markdown("**Valores:**")
-    st.caption("Colaboração • Visão Sistêmica • Melhoria Contínua • Inovação • Empatia • Resiliência • Otimismo • Pioneirismo")
-
-    st.divider()
-    st.markdown("### 📌 Fronteira de Atuação")
-    st.success("✅ **O EPROC faz:** mapeamento, redesenho, levantamento de requisitos de negócio e consultoria de processos.")
-    st.error("❌ **O EPROC NÃO faz:** codificação de sistemas ou desenvolvimento de software — isso é papel dos times de TI/SCTI.")
-
-    st.divider()
-    st.caption("⚡ Painel de apoio à Capacitação de Planejamento Estratégico — EPROC/SEPLAN 2026")
-
-# ══════════════════════════════════════════════════════════════════
-# DADOS — SWOT CONSOLIDADA (fonte: formulário Google, 57 respondentes,
-# ~600 respostas brutas, clusterizadas por similaridade semântica)
+# DADOS (idênticos à versão anterior — reaproveitados)
 # ══════════════════════════════════════════════════════════════════
 swot_data = pd.DataFrame([
-    # FORÇAS
     {"Dimensão": "Força", "Conceito": "Equipe técnica qualificada", "Frequência": 13, "Detalhe": "Equipe multidisciplinar qualificada em gestão de processos."},
     {"Dimensão": "Força", "Conceito": "Organização e padronização dos processos", "Frequência": 9, "Detalhe": "Condução bem definida na implantação da gestão por processos."},
     {"Dimensão": "Força", "Conceito": "Metodologia padronizada", "Frequência": 8, "Detalhe": "Metodologia própria garante consistência e alinhamento estratégico."},
@@ -80,8 +186,6 @@ swot_data = pd.DataFrame([
     {"Dimensão": "Força", "Conceito": "Capacidades e expertises diversas", "Frequência": 3, "Detalhe": "Capacitação contínua dos especialistas."},
     {"Dimensão": "Força", "Conceito": "Patrocínio da alta gestão", "Frequência": 2, "Detalhe": "Posicionamento institucional forte e legítimo."},
     {"Dimensão": "Força", "Conceito": "Padrão único entre secretarias", "Frequência": 1, "Detalhe": "Capacidade de criar um guia de processos único para o Estado."},
-
-    # FRAQUEZAS
     {"Dimensão": "Fraqueza", "Conceito": "Oscilação na aplicação de diretrizes", "Frequência": 15, "Detalhe": "Ausência de modelos consolidados; iniciativa pioneira no Estado exige validação contínua."},
     {"Dimensão": "Fraqueza", "Conceito": "Limitação de recursos", "Frequência": 6, "Detalhe": "Déficit de pessoal e sobrecarga de demandas."},
     {"Dimensão": "Fraqueza", "Conceito": "Dependência de outros órgãos", "Frequência": 6, "Detalhe": "Baixo nível de maturidade em gestão de processos nos órgãos atendidos."},
@@ -92,8 +196,6 @@ swot_data = pd.DataFrame([
     {"Dimensão": "Fraqueza", "Conceito": "Informações espalhadas", "Frequência": 3, "Detalhe": "Proposta de valor pouco traduzida para o público externo."},
     {"Dimensão": "Fraqueza", "Conceito": "Baixo nível de automação", "Frequência": 3, "Detalhe": "Ausência de sistema próprio para automatizar processos mapeados."},
     {"Dimensão": "Fraqueza", "Conceito": "Baixa visibilidade externa", "Frequência": 2, "Detalhe": "Pouca comunicação institucional para fora do EPROC."},
-
-    # OPORTUNIDADES
     {"Dimensão": "Oportunidade", "Conceito": "Transformação digital", "Frequência": 15, "Detalhe": "RPA, IA e análise de dados criam espaço para o EPROC liderar a modernização digital do governo."},
     {"Dimensão": "Oportunidade", "Conceito": "Demanda por modernização da gestão pública", "Frequência": 7, "Detalhe": "Crescente exigência de eficiência e transparência, com apoio potencial da alta gestão."},
     {"Dimensão": "Oportunidade", "Conceito": "Cultura de gestão por processos", "Frequência": 6, "Detalhe": "Parcerias e programas de fomento fortalecem a disseminação da cultura de processos."},
@@ -104,8 +206,6 @@ swot_data = pd.DataFrame([
     {"Dimensão": "Oportunidade", "Conceito": "Possibilidade de concurso público", "Frequência": 2, "Detalhe": "Oportunidade de concurso para fortalecer o corpo funcional."},
     {"Dimensão": "Oportunidade", "Conceito": "Aquisição de sistema de gestão de processos", "Frequência": 2, "Detalhe": "Grande volume de processos mapeados em BPMN abre caminho para automação futura."},
     {"Dimensão": "Oportunidade", "Conceito": "Ampliação do quadro de pessoal", "Frequência": 2, "Detalhe": "Intranet e padronização como instrumentos de cultura institucional."},
-
-    # AMEAÇAS
     {"Dimensão": "Ameaça", "Conceito": "Mudanças políticas e institucionais", "Frequência": 28, "Detalhe": "Item de maior recorrência em toda a coleta — instabilidade política pode afetar continuidade de projetos."},
     {"Dimensão": "Ameaça", "Conceito": "Troca de governo", "Frequência": 4, "Detalhe": "Falta de apoio e corte orçamentário associados à troca de gestão."},
     {"Dimensão": "Ameaça", "Conceito": "Concorrência de consultorias externas", "Frequência": 4, "Detalhe": "Baixo engajamento dos órgãos e baixo conhecimento sobre a importância da gestão de processos."},
@@ -118,9 +218,6 @@ swot_data = pd.DataFrame([
     {"Dimensão": "Ameaça", "Conceito": "Baixa adesão às orientações do EPROC", "Frequência": 2, "Detalhe": "Dificuldade de priorização das demandas formalizadas via EPROC."},
 ])
 
-# ══════════════════════════════════════════════════════════════════
-# DADOS — CRUZAMENTOS TOWS QUE ORIGINARAM OS OBJETIVOS
-# ══════════════════════════════════════════════════════════════════
 tows_data = pd.DataFrame([
     {"Tipo": "SO", "Origem": "Metodologia padronizada + Capacidade técnica", "Cruzado com": "Transformação digital / demanda por modernização",
      "Racional": "Usar a metodologia e a expertise consolidada para se posicionar como consultoria de negócio nas iniciativas de automação do Estado.",
@@ -145,9 +242,6 @@ tows_data = pd.DataFrame([
      "Objetivo gerado": "7 — Relacionamento institucional e rede NUPROC"},
 ])
 
-# ══════════════════════════════════════════════════════════════════
-# DADOS — OBJETIVOS ESTRATÉGICOS (validados)
-# ══════════════════════════════════════════════════════════════════
 objetivos_data = pd.DataFrame([
     {"Nº": 1, "Perspectiva": "Processos Internos / Tecnologia",
      "Objetivo": "Consolidar o EPROC como unidade de referência em mapeamento de processos e levantamento de requisitos, atuando como consultoria de negócio nas iniciativas de automação conduzidas pelo Estado.",
@@ -173,20 +267,20 @@ objetivos_data = pd.DataFrame([
 ])
 
 INDICADORES = {
-    1: [("Nº de processos mapeados como consultoria de negócio pré-automação", "Contagem de entregas BPMN + IT", "A definir", "Trimestral"),
-        ("Taxa de aderência ao checklist de requisitos", "% de processos que seguiram o checklist padrão", "100%", "Contínua")],
-    2: [("Normativo formal publicado", "Existência de decreto/instrução normativa vigente", "Publicado", "Marco único"),
-        ("% de transições acompanhadas pelo EPROC", "Transições com EPROC envolvido / total de transições", "100% pós-normativo", "Semestral")],
-    3: [("Nº de benchmarkings realizados", "Contagem de benchmarkings documentados", "2/ano", "Semestral"),
-        ("Versão da metodologia publicada", "Nº de revisões formais", "1/ano", "Anual")],
-    4: [("% de redução média de etapas (AS-IS x TO-BE)", "(Etapas AS-IS − TO-BE) / AS-IS, média", "A definir", "Anual"),
-        ("Nº de órgãos atendidos com processo desburocratizado", "Órgãos distintos com TO-BE implementado", "A definir", "Anual")],
-    5: [("Taxa de rotatividade de bolsistas", "Saídas / média de bolsistas ativos", "Reduzir vs. baseline", "Semestral"),
-        ("% de bolsistas com onboarding concluído", "Concluintes / total admitidos", "100%", "Contínua")],
-    6: [("ROI institucional do EPROC", "Ganhos de eficiência valorados / custo total", "A definir", "Anual"),
-        ("Custo médio por processo mapeado", "Custo total / nº de processos mapeados", "Reduzir vs. baseline", "Semestral")],
-    7: [("% de pontos focais NUPROC ativos", "Pontos focais atualizados / total de órgãos c/ NUPROC", "100%", "Semestral"),
-        ("Nº de encontros de alinhamento com a rede", "Reuniões formais registradas", "4/ano", "Trimestral")],
+    1: [("Processos mapeados como consultoria pré-automação", "Contagem de entregas BPMN + IT", "A definir", "Trimestral", "🗂️"),
+        ("Aderência ao checklist de requisitos", "% de processos que seguiram o checklist padrão", "100%", "Contínua", "✅")],
+    2: [("Normativo formal publicado", "Existência de decreto/instrução vigente", "Publicado", "Marco único", "📜"),
+        ("Transições acompanhadas pelo EPROC", "Transições com EPROC envolvido / total", "100% pós-normativo", "Semestral", "🏛️")],
+    3: [("Benchmarkings realizados", "Contagem de benchmarkings documentados", "2/ano", "Semestral", "🔎"),
+        ("Versão da metodologia publicada", "Nº de revisões formais", "1/ano", "Anual", "📘")],
+    4: [("Redução média de etapas (AS-IS x TO-BE)", "(Etapas AS-IS − TO-BE) / AS-IS", "A definir", "Anual", "⚡"),
+        ("Órgãos atendidos com processo desburocratizado", "Órgãos distintos com TO-BE implementado", "A definir", "Anual", "🏢")],
+    5: [("Rotatividade de bolsistas", "Saídas / média de bolsistas ativos", "Reduzir vs. baseline", "Semestral", "🔄"),
+        ("Onboarding concluído", "Concluintes / total admitidos", "100%", "Contínua", "🎓")],
+    6: [("ROI institucional do EPROC", "Ganhos de eficiência valorados / custo total", "A definir", "Anual", "💰"),
+        ("Custo médio por processo mapeado", "Custo total / nº de processos", "Reduzir vs. baseline", "Semestral", "📉")],
+    7: [("Pontos focais NUPROC ativos", "Atualizados / total de órgãos c/ NUPROC", "100%", "Semestral", "🌐"),
+        ("Encontros de alinhamento com a rede", "Reuniões formais registradas", "4/ano", "Trimestral", "🤝")],
 }
 
 ACOES = {
@@ -232,30 +326,62 @@ PERSPECTIVA_LAYER = {
     "Processos Internos / Tecnologia": 3,
     "Resultados": 4, "Sustentabilidade": 4,
 }
-PERSPECTIVA_COLOR = {
-    "Pessoas": "#0F766E", "Orçamentária": "#0F766E",
-    "Governança": "#0284C7", "Inovação": "#0284C7",
-    "Processos Internos / Tecnologia": "#2563EB",
-    "Resultados": "#1E3A8A", "Sustentabilidade": "#1E3A8A",
-}
 
 # ══════════════════════════════════════════════════════════════════
-# ABAS
+# HEADER
 # ══════════════════════════════════════════════════════════════════
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "📊 1. Diagnóstico SWOT",
-    "🔗 2. Cruzamentos TOWS",
-    "🎯 3. Objetivos Estratégicos",
-    "🗺️ 4. Mapa Estratégico",
-    "📋 5. Plano de Ação",
-    "📈 6. Indicadores (KPI)",
-    "ℹ️ Metodologia & Fontes",
-])
+st.markdown('<div class="brand-title">Escritório de Gestão e Desburocratização de Processos</div>', unsafe_allow_html=True)
+st.markdown('<div class="brand-sub">EPROC / SEPLAN · Plano Estratégico 2026 — Metodologia BSC + SWOT · Consolidado das Etapas 1 a 4</div>', unsafe_allow_html=True)
 
-# ------------------------------------------------------------------
-# TAB 1: DIAGNÓSTICO SWOT
-# ------------------------------------------------------------------
-with tab1:
+with st.sidebar:
+    st.markdown(f'<div style="font-family:\'Bebas Neue\';font-size:26px;color:{DARK_BLUE};">EPROC / SEPLAN</div>', unsafe_allow_html=True)
+    st.markdown("**Missão**")
+    st.caption("Conectar pessoas e tecnologias, por meio da Gestão por Processos de Negócio, proporcionando a melhoria dos serviços prestados à sociedade catarinense.")
+    st.markdown("**Visão**")
+    st.caption("Consolidar a cultura de Gestão por Processos, com foco na experiência do usuário, como estratégia para melhoria dos serviços prestados pelo Governo do Estado de SC.")
+    st.markdown("**Valores**")
+    st.caption("Colaboração • Visão Sistêmica • Melhoria Contínua • Inovação • Empatia • Resiliência • Otimismo • Pioneirismo")
+    st.divider()
+    st.markdown("### 📌 Fronteira de Atuação")
+    st.success("✅ **Faz:** mapeamento, redesenho, requisitos de negócio, consultoria de processos.")
+    st.error("❌ **Não faz:** codificação/desenvolvimento de sistemas (papel da TI/SCTI).")
+
+# ══════════════════════════════════════════════════════════════════
+# STEPPER — navegação sequencial
+# ══════════════════════════════════════════════════════════════════
+if "step_idx" not in st.session_state:
+    st.session_state.step_idx = 0
+
+n_steps = len(STEPS)
+fill_pct = (st.session_state.step_idx / (n_steps - 1)) * 100
+
+st.markdown(f"""
+<div class="stepper-wrap">
+    <div class="stepper-track"><div class="stepper-fill" style="width:{fill_pct}%;"></div></div>
+</div>
+""", unsafe_allow_html=True)
+
+cols = st.columns(n_steps)
+for i, (col, step) in enumerate(zip(cols, STEPS)):
+    with col:
+        state = "current" if i == st.session_state.step_idx else ("done" if i < st.session_state.step_idx else "")
+        st.markdown(f"""
+        <div class="step-node">
+            <div class="step-circle {state}">{step['icon']}</div>
+            <div class="step-label">{step['label']}</div>
+            <div class="step-sub">{step['sub']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button(" ", key=f"nav_{i}", use_container_width=True):
+            st.session_state.step_idx = i
+
+st.write("")
+step = st.session_state.step_idx
+
+# ══════════════════════════════════════════════════════════════════
+# STEP 0 — DIAGNÓSTICO SWOT
+# ══════════════════════════════════════════════════════════════════
+if step == 0:
     st.subheader("📊 Diagnóstico Consolidado (Análise dos Ambientes)")
     st.caption("Consolidação semântica de ~600 respostas brutas de 57 respondentes, reduzidas a 60 conceitos (40 exibidos abaixo, os mais representativos por quadrante).")
 
@@ -263,64 +389,62 @@ with tab1:
                                  default=swot_data["Dimensão"].unique().tolist())
     filtered = swot_data[swot_data["Dimensão"].isin(dim_filter)]
 
+    colors = {"Força": DARK_BLUE, "Fraqueza": "#3D4F63", "Oportunidade": ORANGE, "Ameaça": "#B85C2E"}
     col_chart1, col_chart2 = st.columns(2)
-    colors = {"Força": "#2E8B3A", "Fraqueza": "#E67E22", "Oportunidade": "#2980B9", "Ameaça": "#C0392B"}
-
     with col_chart1:
         for dim in ["Força", "Fraqueza"]:
             if dim in dim_filter:
                 d = filtered[filtered["Dimensão"] == dim].sort_values("Frequência", ascending=True)
                 fig = px.bar(d, x="Frequência", y="Conceito", orientation="h",
                              title=f"{'💪' if dim=='Força' else '⚠️'} {dim}s", color_discrete_sequence=[colors[dim]])
-                fig.update_layout(height=320, margin=dict(l=0, r=10, t=35, b=0))
+                fig.update_layout(height=320, margin=dict(l=0, r=10, t=35, b=0),
+                                   font_family="Roboto Condensed", plot_bgcolor=WHITE, paper_bgcolor=WHITE)
                 st.plotly_chart(fig, use_container_width=True)
-
     with col_chart2:
         for dim in ["Oportunidade", "Ameaça"]:
             if dim in dim_filter:
                 d = filtered[filtered["Dimensão"] == dim].sort_values("Frequência", ascending=True)
                 fig = px.bar(d, x="Frequência", y="Conceito", orientation="h",
                              title=f"{'🚀' if dim=='Oportunidade' else '🔴'} {dim}s", color_discrete_sequence=[colors[dim]])
-                fig.update_layout(height=320, margin=dict(l=0, r=10, t=35, b=0))
+                fig.update_layout(height=320, margin=dict(l=0, r=10, t=35, b=0),
+                                   font_family="Roboto Condensed", plot_bgcolor=WHITE, paper_bgcolor=WHITE)
                 st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("""
     <div class="note-card">
-    ⚠️ <b>Nota metodológica sobre o volume de menções:</b> a frequência de cada conceito reflete a recorrência
-    percebida entre os respondentes, mas <b>não</b> foi usada como critério único de priorização dos objetivos —
-    ela foi combinada com julgamento qualitativo da equipe de planejamento. Volume alto indica atenção, não
-    determina automaticamente peso estratégico (mais detalhes na aba "Metodologia & Fontes").
+    ⚠️ <b>Nota metodológica sobre o volume de menções:</b> a frequência de cada conceito reflete recorrência
+    percebida, mas <b>não</b> foi usada como critério único de priorização — foi combinada com julgamento
+    qualitativo da equipe (detalhes na etapa "Metodologia").
     </div>
     """, unsafe_allow_html=True)
 
     with st.expander("🔍 Explorar todos os conceitos e detalhes"):
         st.dataframe(filtered[["Dimensão", "Conceito", "Frequência", "Detalhe"]], use_container_width=True, hide_index=True)
 
-# ------------------------------------------------------------------
-# TAB 2: CRUZAMENTOS TOWS
-# ------------------------------------------------------------------
-with tab2:
+# ══════════════════════════════════════════════════════════════════
+# STEP 1 — CRUZAMENTOS TOWS
+# ══════════════════════════════════════════════════════════════════
+elif step == 1:
     st.subheader("🔗 Cruzamentos TOWS que originaram os Objetivos")
     st.caption("Cada cruzamento combina fatores internos (Força/Fraqueza) com fatores externos (Oportunidade/Ameaça) para gerar um objetivo estratégico.")
 
     tipo_labels = {"SO": "🟢 SO — Ofensiva", "WO": "🔵 WO — Reforço", "ST": "🟠 ST — Proteção", "WT": "🔴 WT — Defensiva"}
     for _, row in tows_data.iterrows():
         st.markdown(f"""
-        <div class="card-box">
+        <div class="card-box accent">
             <span class="metric-badge">{tipo_labels.get(row['Tipo'], row['Tipo'])}</span>
-            <span class="metric-badge" style="background-color:#E0E7FF;color:#3730A3;margin-left:6px;">{row['Objetivo gerado']}</span>
+            <span class="metric-badge orange" style="margin-left:6px;">{row['Objetivo gerado']}</span>
             <p style="margin-top:10px; margin-bottom:4px;"><b>Origem (interno):</b> {row['Origem']}</p>
             <p style="margin-bottom:8px;"><b>Cruzado com (externo):</b> {row['Cruzado com']}</p>
             <small style="color:#64748B;"><b>Racional de validação:</b> {row['Racional']}</small>
         </div>
         """, unsafe_allow_html=True)
 
-# ------------------------------------------------------------------
-# TAB 3: OBJETIVOS ESTRATÉGICOS
-# ------------------------------------------------------------------
-with tab3:
+# ══════════════════════════════════════════════════════════════════
+# STEP 2 — OBJETIVOS ESTRATÉGICOS
+# ══════════════════════════════════════════════════════════════════
+elif step == 2:
     st.subheader("🎯 Objetivos Estratégicos (Formato BSC)")
-
     st.markdown("""
     <div class="source-card">
     💡 <b>Alinhamento de escopo institucional:</b> o EPROC posiciona-se como <b>consultoria interna de negócios
@@ -337,55 +461,91 @@ with tab3:
         st.markdown(f"""
         <div class="card-box">
             <span class="metric-badge">{row['Perspectiva']}</span>
-            <span class="metric-badge" style="background-color:#FEF3C7;color:#92400E;margin-left:6px;">{row['Eixo']}</span>
-            <h4 style="margin-top: 8px; margin-bottom: 5px; color: #1E3A8A;">Objetivo {row['Nº']}</h4>
+            <span class="metric-badge orange" style="margin-left:6px;">{row['Eixo']}</span>
+            <h4 style="margin-top: 8px; margin-bottom: 5px; color: {DARK_BLUE}; font-family:'Bebas Neue';letter-spacing:0.5px;">OBJETIVO {row['Nº']}</h4>
             <p style="color: #334155;">{row['Objetivo']}</p>
         </div>
         """, unsafe_allow_html=True)
 
-# ------------------------------------------------------------------
-# TAB 4: MAPA ESTRATÉGICO
-# ------------------------------------------------------------------
-with tab4:
-    st.subheader("🗺️ Mapa Estratégico (Cadeia de Causa e Efeito)")
-    st.markdown("Relações entre os 7 objetivos, organizadas em 4 camadas causais — da base (viabilizadores) ao topo (resultado e legitimidade).")
+# ══════════════════════════════════════════════════════════════════
+# STEP 3 — MAPA ESTRATÉGICO (redesenhado)
+# ══════════════════════════════════════════════════════════════════
+elif step == 3:
+    st.subheader("🗺️ Mapa Estratégico")
 
+    st.markdown(f"""
+    <div class="source-card">
+    <b>O que é este mapa e como usá-lo:</b> os 7 objetivos estratégicos estão organizados em <b>4 camadas de
+    causa e efeito</b> — de baixo para cima. A cor evolui do azul escuro (fundação) ao laranja (resultado),
+    reforçando a leitura: <b>investir na base sustenta a capacidade, que viabiliza a operação, que gera o
+    resultado no topo.</b> Use o seletor abaixo para ver as conexões de um objetivo específico.
+    </div>
+    """, unsafe_allow_html=True)
+
+    layer_info = {
+        4: ("RESULTADO & LEGITIMIDADE", "O que a sociedade e a alta gestão enxergam"),
+        3: ("OPERAÇÃO", "O que o EPROC entrega no dia a dia"),
+        2: ("CAPACIDADE & MANDATO", "O que viabiliza a operação"),
+        1: ("FUNDAÇÃO", "O que sustenta tudo o resto"),
+    }
     layers = {1: [], 2: [], 3: [], 4: []}
     for _, row in objetivos_data.iterrows():
         layers[PERSPECTIVA_LAYER[row["Perspectiva"]]].append(row)
 
-    layer_titles = {4: "🏆 RESULTADO & LEGITIMIDADE", 3: "⚙️ OPERAÇÃO", 2: "🏛️ CAPACIDADE & MANDATO", 1: "🧱 VIABILIZADORES"}
-
     for lvl in [4, 3, 2, 1]:
-        st.markdown(f"**{layer_titles[lvl]}**")
+        title, desc = layer_info[lvl]
+        st.markdown(f'<div class="layer-header">{title} <span style="color:#8A93A3;font-family:\'Roboto Condensed\';font-size:12px;">— {desc}</span></div>', unsafe_allow_html=True)
         cols = st.columns(len(layers[lvl]))
         for c, row in zip(cols, layers[lvl]):
-            color = PERSPECTIVA_COLOR[row["Perspectiva"]]
-            c.markdown(f"""<div class="layer-box" style="background-color:{color};">
-                Obj. {row['Nº']} — {row['Perspectiva']}
-                </div>""", unsafe_allow_html=True)
+            color = LAYER_COLORS[lvl]
+            with c:
+                st.markdown(f"""<div class="node-card" style="background-color:{color};">
+                    <div class="node-num">OBJ. {row['Nº']}</div>
+                    <div class="node-persp">{row['Perspectiva']}</div>
+                    </div>""", unsafe_allow_html=True)
         if lvl > 1:
-            st.markdown("<div style='text-align:center;font-size:20px;'>⬆️</div>", unsafe_allow_html=True)
+            st.markdown('<div class="flow-arrow">⬆</div>', unsafe_allow_html=True)
 
     st.divider()
-    st.markdown("##### Relações de causa-efeito detalhadas")
+    st.markdown("##### 🔍 Explorar conexões de um objetivo")
     obj_lookup = objetivos_data.set_index("Nº")["Perspectiva"].to_dict()
-    causal_df = pd.DataFrame([
-        {"De": f"Obj. {a} ({obj_lookup[int(a)]})", "Para": f"Obj. {b} ({obj_lookup[int(b)]})", "Racional": r}
-        for a, b, r in CAUSAL_LINKS
-    ])
-    st.dataframe(causal_df, use_container_width=True, hide_index=True)
+    sel = st.selectbox("Selecionar objetivo", options=objetivos_data["Nº"].tolist(),
+                        format_func=lambda n: f"Objetivo {n} — {obj_lookup[n]}")
+
+    alimenta = [(b, r) for a, b, r in CAUSAL_LINKS if int(a) == sel]
+    alimentado_por = [(a, r) for a, b, r in CAUSAL_LINKS if int(b) == sel]
+
+    col_in, col_out = st.columns(2)
+    with col_in:
+        st.markdown(f"**⬅️ É alimentado por** ({len(alimentado_por)})")
+        if alimentado_por:
+            for a, r in alimentado_por:
+                st.markdown(f"""<div class="card-box" style="padding:12px 14px;">
+                    <b>Objetivo {a}</b> — {obj_lookup[int(a)]}<br><small style="color:#64748B;">{r}</small>
+                    </div>""", unsafe_allow_html=True)
+        else:
+            st.caption("Nenhuma dependência de entrada mapeada — este é um objetivo de base.")
+    with col_out:
+        st.markdown(f"**➡️ Alimenta** ({len(alimenta)})")
+        if alimenta:
+            for b, r in alimenta:
+                st.markdown(f"""<div class="card-box accent" style="padding:12px 14px;">
+                    <b>Objetivo {b}</b> — {obj_lookup[int(b)]}<br><small style="color:#64748B;">{r}</small>
+                    </div>""", unsafe_allow_html=True)
+        else:
+            st.caption("Nenhum objetivo dependente mapeado — este é um objetivo de topo.")
+
     st.caption("🔁 O laço Obj. 7 → Obj. 6 fecha um ciclo de retroalimentação: legitimidade institucional sustenta orçamento no ciclo seguinte.")
 
-# ------------------------------------------------------------------
-# TAB 5: PLANO DE AÇÃO
-# ------------------------------------------------------------------
-with tab5:
+# ══════════════════════════════════════════════════════════════════
+# STEP 4 — PLANO DE AÇÃO
+# ══════════════════════════════════════════════════════════════════
+elif step == 4:
     st.subheader("📋 Plano de Ação por Objetivo")
     st.markdown("""
     <div class="note-card">
-    📝 Ações em fase de validação/ajuste de prazos e responsáveis reais — os prazos abaixo são relativos
-    ao início do plano (T1, T2...) e devem ser substituídos pelos períodos reais de execução.
+    📝 Ações em fase de validação de prazos e responsáveis reais — os prazos abaixo (T1, T2...) são
+    relativos ao início do plano.
     </div>
     """, unsafe_allow_html=True)
 
@@ -408,18 +568,52 @@ with tab5:
     st.progress(concluidos / total)
     st.caption(f"**Progresso geral do plano de ação:** {concluidos} de {total} iniciativas concluídas ({int(concluidos/total*100)}%)")
 
-# ------------------------------------------------------------------
-# TAB 6: INDICADORES (KPI)
-# ------------------------------------------------------------------
-with tab6:
-    st.subheader("📈 Indicadores por Objetivo (KPI)")
+# ══════════════════════════════════════════════════════════════════
+# STEP 5 — INDICADORES (redesenhado)
+# ══════════════════════════════════════════════════════════════════
+elif step == 5:
+    st.subheader("📈 Indicadores por Objetivo")
 
+    obj_lookup_full = objetivos_data.set_index("Nº")
     obj_select = st.selectbox("Selecionar objetivo", options=objetivos_data["Nº"].tolist(),
-                               format_func=lambda n: f"Objetivo {n} — {objetivos_data.set_index('Nº').loc[n, 'Perspectiva']}")
+                               format_func=lambda n: f"Objetivo {n} — {obj_lookup_full.loc[n, 'Perspectiva']}")
 
     kpis = INDICADORES[obj_select]
-    kpi_df = pd.DataFrame(kpis, columns=["KPI", "Fórmula/Medição", "Meta", "Periodicidade"])
-    st.dataframe(kpi_df, use_container_width=True, hide_index=True)
+    kcols = st.columns(len(kpis))
+    for c, (nome, formula, meta, periodo, icon) in zip(kcols, kpis):
+        with c:
+            st.markdown(f"""
+            <div class="kpi-icon-card">
+                <div class="kpi-icon">{icon}</div>
+                <div class="kpi-title">{nome}</div>
+                <div class="kpi-meta">📐 {formula}</div>
+                <div class="kpi-meta">🎯 Meta: <b>{meta}</b></div>
+                <div class="kpi-meta">🗓️ {periodo}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.divider()
+    st.markdown("##### 🌡️ Leitura visual (ilustrativa até termos linha de base real)")
+    gauge_cols = st.columns(len(kpis))
+    for c, (nome, formula, meta, periodo, icon) in zip(gauge_cols, kpis):
+        with c:
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=45,
+                title={"text": nome[:28], "font": {"size": 13, "family": "Roboto Condensed"}},
+                number={"suffix": "%", "font": {"color": DARK_BLUE}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickfont": {"size": 9}},
+                    "bar": {"color": ORANGE},
+                    "bgcolor": WHITE,
+                    "steps": [
+                        {"range": [0, 40], "color": "#F1F1F3"},
+                        {"range": [40, 75], "color": "#F4D9C6"},
+                    ],
+                }
+            ))
+            fig.update_layout(height=200, margin=dict(l=10, r=10, t=40, b=10), paper_bgcolor=WHITE)
+            st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
     st.markdown("##### ⚡ Simulador de impacto — Objetivo 4 (Desburocratização)")
@@ -430,66 +624,82 @@ with tab6:
         processos_ano = st.slider("Processos redesenhados / ano", 5, 50, 20, 5)
         reducao_dias = st.slider("Redução média no tempo de tramitação (dias)", 5, 60, 25, 5)
         horas_servidor = st.slider("Horas economizadas por processo/ano", 50, 500, 180, 10)
-
     with sim_col2:
         total_dias_salvos = processos_ano * reducao_dias
         total_horas_poupadas = processos_ano * horas_servidor
         equivalente_servidores = round(total_horas_poupadas / 1920, 1)
 
         m1, m2, m3 = st.columns(3)
-        m1.metric("Dias agilizados", f"{total_dias_salvos:,}")
-        m2.metric("Horas revertidas", f"{total_horas_poupadas:,} h")
-        m3.metric("Equivalente em FTEs", f"~{equivalente_servidores}")
+        for col, icon, label, val in [
+            (m1, "📅", "Dias agilizados", f"{total_dias_salvos:,}"),
+            (m2, "⏱️", "Horas revertidas", f"{total_horas_poupadas:,} h"),
+            (m3, "🧑‍💼", "Equivalente em FTEs", f"~{equivalente_servidores}"),
+        ]:
+            col.markdown(f"""
+            <div class="kpi-icon-card" style="text-align:center;">
+                <div class="kpi-icon">{icon}</div>
+                <div class="kpi-title" style="font-size:22px;">{val}</div>
+                <div class="kpi-meta">{label}</div>
+            </div>
+            """, unsafe_allow_html=True)
         st.info(f"Redesenhando **{processos_ano} processos/ano**, o EPROC libera o equivalente a **{equivalente_servidores} servidores em tempo integral** para atendimento direto ao cidadão.")
 
-# ------------------------------------------------------------------
-# TAB 7: METODOLOGIA & FONTES
-# ------------------------------------------------------------------
-with tab7:
+# ══════════════════════════════════════════════════════════════════
+# STEP 6 — METODOLOGIA & FONTES
+# ══════════════════════════════════════════════════════════════════
+elif step == 6:
     st.subheader("ℹ️ Metodologia e Fontes dos Dados")
-
     st.markdown("""
     #### Como chegamos até aqui
 
-    **Etapa 1 — Alinhamento Inicial:** definição do Plano de Projeto do Planejamento Estratégico (prazo de 1 mês),
-    equipe responsável e as 8 perspectivas do Mapa Estratégico (Resultados, Processos Internos, Pessoas,
-    Tecnologia, Orçamentária, Sustentabilidade, Inovação e Governança), seguindo a metodologia EPROC/SEPLAN
-    versão 01/2026.
+    **Etapa 1 — Alinhamento Inicial:** definição do Plano de Projeto (prazo de 1 mês), equipe responsável e
+    as 8 perspectivas do Mapa Estratégico, seguindo a metodologia EPROC/SEPLAN versão 01/2026.
 
     **Etapa 2 — Análise dos Ambientes (SWOT):** coleta via formulário Google, com **57 respondentes** de
-    múltiplos órgãos do Poder Executivo de SC, gerando cerca de **600 respostas brutas** (~150 por quadrante).
-    Os dados foram higienizados e consolidados por agrupamento semântico, usando o modelo
-    `paraphrase-multilingual-MiniLM-L12-v2` (Sentence Transformers), com agrupamento hierárquico por
-    distância de cosseno, limiar de similaridade **0.72** e máximo de 15 conceitos por quadrante — resultando
-    em 60 conceitos consolidados.
+    múltiplos órgãos do Executivo de SC, gerando ~600 respostas brutas. Consolidação por agrupamento
+    semântico com `paraphrase-multilingual-MiniLM-L12-v2` (Sentence Transformers), limiar de similaridade
+    **0.72**, resultando em 60 conceitos.
 
-    **Etapa 3 — Formulação Estratégica:** os cruzamentos TOWS foram gerados a partir da matriz SWOT e
-    priorizados **combinando recorrência quantitativa com validação qualitativa da equipe de planejamento** —
-    o volume de menções por conceito não foi usado como critério único de decisão. Os 7 objetivos estratégicos
-    foram redigidos no formato BSC (verbo no infinitivo) e distribuídos nas 8 perspectivas.
+    **Etapa 3 — Formulação Estratégica:** cruzamentos TOWS priorizados combinando recorrência quantitativa
+    com validação qualitativa da equipe — volume de menções não foi critério único. 7 objetivos redigidos
+    em formato BSC.
 
-    **Etapa 4 — Desdobramento:** construção do Mapa Estratégico (relações de causa-efeito entre objetivos),
-    Plano de Ação (responsáveis e prazos) e Indicadores (KPIs por objetivo).
+    **Etapa 4 — Desdobramento:** Mapa Estratégico, Plano de Ação e Indicadores por objetivo.
     """)
-
     st.markdown("""
     <div class="note-card">
     ⚠️ <b>Nota de transparência sobre viés de amostragem:</b> o volume de respondentes por órgão não é
-    proporcional, e o próprio processo de clusterização semântico envolve decisões técnicas (limiar de
-    similaridade) que podem agrupar ou separar conceitos de forma diferente conforme o parâmetro escolhido.
-    Por isso, a frequência de cada conceito deve ser lida como <b>sinal de atenção</b>, não como
-    <b>determinação automática</b> de prioridade estratégica.
+    proporcional, e a clusterização semântica envolve decisões técnicas que podem agrupar conceitos de
+    forma diferente conforme o parâmetro. A frequência deve ser lida como <b>sinal de atenção</b>, não
+    como <b>determinação automática</b> de prioridade.
     </div>
     """, unsafe_allow_html=True)
-
-    st.markdown("""
+    st.markdown(f"""
     <div class="source-card">
-    ✅ <b>Missão, Visão e Valores</b> (referência de alinhamento para todos os objetivos):<br><br>
+    ✅ <b>Missão, Visão e Valores</b> (referência de alinhamento):<br><br>
     <b>Missão:</b> Conectar pessoas e tecnologias, por meio da Gestão por Processos de Negócio, proporcionando
     a melhoria dos serviços prestados à sociedade catarinense.<br>
-    <b>Visão:</b> Consolidar a cultura de Gestão por Processos, com foco na experiência do usuário, como
-    estratégia para melhoria dos serviços prestados pelo Governo do Estado de SC.<br>
+    <b>Visão:</b> Consolidar a cultura de Gestão por Processos, com foco na experiência do usuário.<br>
     <b>Valores:</b> Colaboração, Visão Sistêmica, Melhoria Contínua, Inovação, Empatia, Resiliência,
     Otimismo e Pioneirismo.
     </div>
     """, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════
+# NAVEGAÇÃO PREV/NEXT
+# ══════════════════════════════════════════════════════════════════
+st.write("")
+st.divider()
+nav_prev, nav_mid, nav_next = st.columns([1, 3, 1])
+with nav_prev:
+    if step > 0:
+        if st.button("← Anterior", use_container_width=True):
+            st.session_state.step_idx = step - 1
+            st.rerun()
+with nav_mid:
+    st.markdown(f'<div style="text-align:center;color:#8A93A3;font-size:13px;">Etapa {step+1} de {n_steps}</div>', unsafe_allow_html=True)
+with nav_next:
+    if step < n_steps - 1:
+        if st.button("Próximo →", use_container_width=True):
+            st.session_state.step_idx = step + 1
+            st.rerun()
