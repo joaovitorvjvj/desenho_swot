@@ -367,13 +367,6 @@ st.markdown('<div class="brand-sub">EPROC / SEPLAN · Plano Estratégico 2026 �
 
 with st.sidebar:
     st.markdown(f'<div style="font-family:\'Bebas Neue\';font-size:26px;color:{DARK_BLUE};">EPROC / SEPLAN</div>', unsafe_allow_html=True)
-    st.markdown("**Missão**")
-    st.caption("Conectar pessoas e tecnologias, por meio da Gestão por Processos de Negócio, proporcionando a melhoria dos serviços prestados à sociedade catarinense.")
-    st.markdown("**Visão**")
-    st.caption("Consolidar a cultura de Gestão por Processos, com foco na experiência do usuário, como estratégia para melhoria dos serviços prestados pelo Governo do Estado de SC.")
-    st.markdown("**Valores**")
-    st.caption("Colaboração • Visão Sistêmica • Melhoria Contínua • Inovação • Empatia • Resiliência • Otimismo • Pioneirismo")
-    st.divider()
     st.markdown("### 📌 Fronteira de Atuação")
     st.success("✅ **Faz:** mapeamento, redesenho, requisitos de negócio, consultoria de processos.")
     st.error("❌ **Não faz:** codificação/desenvolvimento de sistemas (papel da TI/SCTI).")
@@ -478,16 +471,32 @@ if step == 0:
 # ══════════════════════════════════════════════════════════════════
 elif step == 1:
     st.subheader("🧩 Folha de Cruzamentos TOWS — Dinâmica em Equipe")
-    st.caption("Arrastem os conceitos da SWOT para dentro do quadrante de cruzamento correspondente. Um mesmo conceito pode ser usado em mais de um cruzamento — copiem o texto de volta pro banco se precisarem reutilizá-lo.")
+    st.caption("Arrastem os conceitos da SWOT (banco acima) para dentro do quadrante de cruzamento correspondente (abaixo). Um mesmo conceito pode ser usado em mais de um cruzamento.")
 
-    st.markdown("""
-    <div class="note-card">
-    📝 <b>Como funciona:</b> os conceitos abaixo vêm direto do diagnóstico SWOT já consolidado, ordenados do mais
-    citado pro menos citado. Arrastem Forças/Fraquezas e Oportunidades/Ameaças para o quadrante certo (SO, WO, ST
-    ou WT) e escrevam, no campo de observação, a ideia de objetivo que surge da combinação. Ao final, cliquem em
-    <b>"Exportar resultado"</b> — sem isso, o trabalho se perde se a página for recarregada.
-    </div>
-    """, unsafe_allow_html=True)
+    with st.expander("❓ Como funciona esta dinâmica — clique para ver a explicação e um exemplo", expanded=True):
+        st.markdown("""
+        **O que é um cruzamento TOWS:** cada tipo combina um fator **interno** (Força ou Fraqueza) com um fator
+        **externo** (Oportunidade ou Ameaça). Dessa combinação nasce a ideia de um objetivo estratégico.
+
+        | Tipo | Combinação | Pergunta-guia |
+        |---|---|---|
+        | 🟢 SO — Ofensiva | Força + Oportunidade | Como usar uma força para aproveitar uma oportunidade? |
+        | 🔵 WO — Reforço | Fraqueza + Oportunidade | Como aproveitar uma oportunidade para reduzir uma fraqueza? |
+        | 🟠 ST — Proteção | Força + Ameaça | Como usar uma força para se proteger de uma ameaça? |
+        | 🔴 WT — Defensiva | Fraqueza + Ameaça | Como reduzir uma fraqueza pra não ficar exposto a uma ameaça? |
+
+        **Passo a passo:**
+        1. Leiam os conceitos no banco (topo) — eles já vêm do diagnóstico SWOT, do mais citado pro menos citado.
+        2. Arrastem 1 conceito interno + 1 conceito externo para o quadrante de cruzamento que fizer sentido.
+        3. Escrevam no campo de observação (mais abaixo) a ideia de objetivo que surge dali.
+        4. No final, cliquem em **"Exportar resultado"** — sem isso, o trabalho se perde se a página recarregar.
+
+        **Exemplo prático (🟢 SO — Ofensiva):**
+        Arrastem `💪 Equipe técnica qualificada` (uma Força) e `🚀 Transformação digital` (uma Oportunidade)
+        para o quadrante verde. No campo de observação, escrevam algo como:
+        *"Usar a equipe qualificada em BPM para liderar os projetos de automação que o Estado já está priorizando."*
+        Essa frase, depois refinada, vira um objetivo estratégico formal.
+        """)
 
     if "tows_board" not in st.session_state:
         banco_inicial = []
@@ -503,16 +512,14 @@ elif step == 1:
         ]
 
     if SORTABLES_AVAILABLE:
-        # CSS ajustado para forçar layout lado a lado (row), com o banco mais largo
-        # que os 4 quadrantes de cruzamento, e rolagem horizontal em telas estreitas.
+        # Layout: o banco (1º container) ocupa a linha inteira sozinho no topo;
+        # os 4 quadrantes de cruzamento quebram pra linha de baixo e ficam lado a lado.
+        # Truque: flex-wrap + o 1º item com flex-basis:100% força a quebra de linha.
         custom_style = f"""
         .sortable-component {{
             display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 12px;
-            overflow-x: auto;
-            padding-bottom: 8px;
+            flex-wrap: wrap !important;
+            gap: 14px;
             align-items: flex-start;
         }}
         .sortable-container {{
@@ -520,12 +527,12 @@ elif step == 1:
             border-radius: 12px;
             border: 1px solid #E2E4E9;
             box-shadow: 0 2px 10px rgba(13,27,42,0.05);
-            flex: 0 0 220px;
-            min-width: 220px;
+            flex: 1 1 200px;
+            min-width: 200px;
         }}
         .sortable-container:first-child {{
-            flex: 0 0 300px;
-            min-width: 300px;
+            flex: 1 1 100%;
+            min-width: 100%;
         }}
         .sortable-container-header {{
             background-color: {DARK_BLUE};
@@ -537,8 +544,17 @@ elif step == 1:
         }}
         .sortable-container-body {{
             background-color: {WHITE};
-            min-height: 260px;
-            padding: 8px;
+            padding: 10px;
+        }}
+        .sortable-container:first-child .sortable-container-body {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 280px;
+            overflow-y: auto;
+        }}
+        .sortable-container:not(:first-child) .sortable-container-body {{
+            min-height: 220px;
         }}
         .sortable-item {{
             background-color: {LIGHT_GRAY};
@@ -548,6 +564,10 @@ elif step == 1:
             margin-bottom: 6px;
             font-size: 12.5px;
             color: {DARK_BLUE};
+        }}
+        .sortable-container:first-child .sortable-item {{
+            margin-bottom: 0;
+            flex: 0 0 auto;
         }}
         .sortable-item:hover {{ border-color: {ORANGE}; }}
         """
