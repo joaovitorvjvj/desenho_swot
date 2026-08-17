@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="EPROC/SEPLAN — Planejamento Estratégico",
     page_icon="🎯",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # ══════════════════════════════════════════════════════════════════
@@ -365,28 +365,33 @@ PERSPECTIVA_LAYER = {
 st.markdown('<div class="brand-title">Escritório de Gestão e Desburocratização de Processos</div>', unsafe_allow_html=True)
 st.markdown('<div class="brand-sub">EPROC / SEPLAN · Plano Estratégico 2026 — Metodologia BSC + SWOT · Consolidado das Etapas 1 a 4</div>', unsafe_allow_html=True)
 
-with st.sidebar:
-    st.markdown(f'<div style="font-family:\'Bebas Neue\';font-size:26px;color:{DARK_BLUE};">EPROC / SEPLAN</div>', unsafe_allow_html=True)
-    st.markdown("### 📌 Fronteira de Atuação")
+st.markdown('<div class="brand-title">Escritório de Gestão e Desburocratização de Processos</div>', unsafe_allow_html=True)
+st.markdown('<div class="brand-sub">EPROC / SEPLAN · Plano Estratégico 2026 — Metodologia BSC + SWOT · Consolidado das Etapas 1 a 4</div>', unsafe_allow_html=True)
+
+col_faz, col_nao_faz = st.columns(2)
+with col_faz:
     st.success("✅ **Faz:** mapeamento, redesenho, requisitos de negócio, consultoria de processos.")
+with col_nao_faz:
     st.error("❌ **Não faz:** codificação/desenvolvimento de sistemas (papel da TI/SCTI).")
 
-    st.divider()
+with st.expander("🔒 Conteúdo avançado (Objetivos, Mapa, Ações, Indicadores)" if not st.session_state.get("unlocked", False) else "🔓 Conteúdo avançado liberado"):
     if st.session_state.get("unlocked", False):
-        st.markdown("### 🔓 Conteúdo avançado liberado")
-        if st.button("Bloquear novamente", use_container_width=True):
+        st.caption("O conteúdo avançado está liberado para esta sessão.")
+        if st.button("Bloquear novamente"):
             st.session_state.unlocked = False
             st.rerun()
     else:
-        st.markdown("### 🔒 Conteúdo avançado")
         st.caption("Objetivos, Mapa, Ações e Indicadores ficam reservados até a equipe concluir a dinâmica de cruzamentos.")
-        pwd_sidebar = st.text_input("Senha do facilitador", type="password", key="pwd_sidebar")
-        if st.button("Desbloquear", use_container_width=True, key="btn_sidebar"):
-            if pwd_sidebar == UNLOCK_PASSWORD:
-                st.session_state.unlocked = True
-                st.rerun()
-            else:
-                st.error("Senha incorreta.")
+        col_pwd, col_btn = st.columns([3, 1])
+        with col_pwd:
+            pwd_top = st.text_input("Senha do facilitador", type="password", key="pwd_top", label_visibility="collapsed", placeholder="Senha do facilitador")
+        with col_btn:
+            if st.button("Desbloquear", use_container_width=True, key="btn_top"):
+                if pwd_top == UNLOCK_PASSWORD:
+                    st.session_state.unlocked = True
+                    st.rerun()
+                else:
+                    st.error("Senha incorreta.")
 
 # ══════════════════════════════════════════════════════════════════
 # STEPPER — navegação sequencial
@@ -530,7 +535,7 @@ elif step == 1:
             flex: 1 1 200px;
             min-width: 200px;
         }}
-        .sortable-container:first-child {{
+        .sortable-container:first-of-type {{
             flex: 1 1 100%;
             min-width: 100%;
         }}
@@ -546,14 +551,14 @@ elif step == 1:
             background-color: {WHITE};
             padding: 10px;
         }}
-        .sortable-container:first-child .sortable-container-body {{
+        .sortable-container:first-of-type .sortable-container-body {{
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
             max-height: 280px;
             overflow-y: auto;
         }}
-        .sortable-container:not(:first-child) .sortable-container-body {{
+        .sortable-container:not(:first-of-type) .sortable-container-body {{
             min-height: 220px;
         }}
         .sortable-item {{
@@ -565,7 +570,7 @@ elif step == 1:
             font-size: 12.5px;
             color: {DARK_BLUE};
         }}
-        .sortable-container:first-child .sortable-item {{
+        .sortable-container:first-of-type .sortable-item {{
             margin-bottom: 0;
             flex: 0 0 auto;
         }}
