@@ -377,12 +377,6 @@ PERSPECTIVA_LAYER = {
 st.markdown('<div class="brand-title">Escritório de Gestão e Desburocratização de Processos</div>', unsafe_allow_html=True)
 st.markdown('<div class="brand-sub">EPROC / SEPLAN · Plano Estratégico 2026 — Metodologia BSC + SWOT · Consolidado das Etapas 1 a 4</div>', unsafe_allow_html=True)
 
-col_faz, col_nao_faz = st.columns(2)
-with col_faz:
-    st.success("✅ **Faz:** mapeamento, redesenho, requisitos de negócio, consultoria de processos.")
-with col_nao_faz:
-    st.error("❌ **Não faz:** codificação/desenvolvimento de sistemas (papel da TI/SCTI).")
-
 with st.expander("🔒 Conteúdo avançado (Objetivos, Mapa, Ações, Indicadores)" if not st.session_state.get("unlocked", False) else "🔓 Conteúdo avançado liberado"):
     if st.session_state.get("unlocked", False):
         st.caption("O conteúdo avançado está liberado para esta sessão.")
@@ -514,11 +508,10 @@ elif step == 1:
 
     if "tows_board" not in st.session_state:
         LABEL_DIM = {"Força": "FORÇA", "Fraqueza": "FRAQUEZA", "Oportunidade": "OPORT.", "Ameaça": "AMEAÇA"}
-        TOP_N_POR_DIMENSAO = 6  # reduz o banco aos mais citados de cada quadrante, evita sobrecarga visual
         banco_inicial = []
         for dim in ["Força", "Fraqueza", "Oportunidade", "Ameaça"]:
-            top_dim = swot_data[swot_data["Dimensão"] == dim].sort_values("Frequência", ascending=False).head(TOP_N_POR_DIMENSAO)
-            for _, r in top_dim.iterrows():
+            todos_dim = swot_data[swot_data["Dimensão"] == dim].sort_values("Frequência", ascending=False)
+            for _, r in todos_dim.iterrows():
                 banco_inicial.append(f"[{LABEL_DIM[dim]}] {r['Conceito']}")
         st.session_state.tows_board = [
             {"header": "🏦 Banco de Conceitos", "items": banco_inicial},
