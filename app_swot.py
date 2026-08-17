@@ -482,10 +482,10 @@ elif step == 1:
 
     st.markdown("""
     <div class="note-card">
-    📝 <b>Como funciona:</b> os conceitos abaixo vêm direto do diagnóstico SWOT já consolidado. Arrastem Forças/Fraquezas
-    e Oportunidades/Ameaças para o quadrante certo (SO, WO, ST ou WT) e escrevam, no campo de observação, a ideia de
-    objetivo que surge da combinação. O resultado desta etapa é o que vai alimentar os Objetivos Estratégicos —
-    que continuam bloqueados até a equipe concluir esta dinâmica.
+    📝 <b>Como funciona:</b> os conceitos abaixo vêm direto do diagnóstico SWOT já consolidado, ordenados do mais
+    citado pro menos citado. Arrastem Forças/Fraquezas e Oportunidades/Ameaças para o quadrante certo (SO, WO, ST
+    ou WT) e escrevam, no campo de observação, a ideia de objetivo que surge da combinação. Ao final, cliquem em
+    <b>"Exportar resultado"</b> — sem isso, o trabalho se perde se a página for recarregada.
     </div>
     """, unsafe_allow_html=True)
 
@@ -503,15 +503,52 @@ elif step == 1:
         ]
 
     if SORTABLES_AVAILABLE:
+        # CSS ajustado para forçar layout lado a lado (row), com o banco mais largo
+        # que os 4 quadrantes de cruzamento, e rolagem horizontal em telas estreitas.
         custom_style = f"""
-        .sortable-component {{ gap: 12px; }}
-        .sortable-container {{ background-color: {WHITE}; border-radius: 12px; border: 1px solid #E2E4E9;
-            box-shadow: 0 2px 10px rgba(13,27,42,0.05); min-width: 190px; }}
-        .sortable-container-header {{ background-color: {DARK_BLUE}; color: {WHITE}; font-weight: 700;
-            padding: 10px 12px; border-radius: 12px 12px 0 0; font-size: 13px; }}
-        .sortable-container-body {{ background-color: {WHITE}; min-height: 220px; padding: 8px; }}
-        .sortable-item {{ background-color: {LIGHT_GRAY}; border: 1px solid #E2E4E9; border-radius: 8px;
-            padding: 8px 10px; margin-bottom: 6px; font-size: 12.5px; color: {DARK_BLUE}; }}
+        .sortable-component {{
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            align-items: flex-start;
+        }}
+        .sortable-container {{
+            background-color: {WHITE};
+            border-radius: 12px;
+            border: 1px solid #E2E4E9;
+            box-shadow: 0 2px 10px rgba(13,27,42,0.05);
+            flex: 0 0 220px;
+            min-width: 220px;
+        }}
+        .sortable-container:first-child {{
+            flex: 0 0 300px;
+            min-width: 300px;
+        }}
+        .sortable-container-header {{
+            background-color: {DARK_BLUE};
+            color: {WHITE};
+            font-weight: 700;
+            padding: 10px 12px;
+            border-radius: 12px 12px 0 0;
+            font-size: 13px;
+        }}
+        .sortable-container-body {{
+            background-color: {WHITE};
+            min-height: 260px;
+            padding: 8px;
+        }}
+        .sortable-item {{
+            background-color: {LIGHT_GRAY};
+            border: 1px solid #E2E4E9;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            font-size: 12.5px;
+            color: {DARK_BLUE};
+        }}
         .sortable-item:hover {{ border-color: {ORANGE}; }}
         """
         st.session_state.tows_board = sortables.sort_items(
@@ -554,6 +591,34 @@ elif step == 1:
                 height=140, key=f"obs_{label}",
                 placeholder="Qual objetivo surge dessa combinação?"
             )
+
+    # ---------- EXPORTAR RESULTADO ----------
+    st.divider()
+    st.markdown("##### 💾 Salvar o trabalho da equipe")
+    st.caption("Isso gera um arquivo de texto com tudo que foi arrastado e escrito — guardem esse arquivo, é a partir dele que os Objetivos Estratégicos reais (não os que já estão pré-elaborados) devem ser construídos.")
+
+    linhas_export = ["FOLHA DE CRUZAMENTOS TOWS — EPROC/SEPLAN", "=" * 50, ""]
+    board_map = {c["header"]: c["items"] for c in st.session_state.tows_board}
+    for label in labels_obs:
+        linhas_export.append(f"\n{label}")
+        linhas_export.append("-" * len(label))
+        itens = board_map.get(label, [])
+        if itens:
+            for it in itens:
+                linhas_export.append(f"  • {it}")
+        else:
+            linhas_export.append("  (nenhum conceito posicionado)")
+        obs_texto = st.session_state.tows_obs.get(label, "").strip()
+        linhas_export.append(f"  Ideia de objetivo: {obs_texto if obs_texto else '(não preenchido)'}")
+
+    conteudo_export = "\n".join(linhas_export)
+    st.download_button(
+        "⬇️ Exportar resultado (.txt)",
+        data=conteudo_export,
+        file_name="cruzamentos_tows_equipe.txt",
+        mime="text/plain",
+        use_container_width=True,
+    )
 # ══════════════════════════════════════════════════════════════════
 # STEP 2 — CRUZAMENTOS TOWS
 # ══════════════════════════════════════════════════════════════════
