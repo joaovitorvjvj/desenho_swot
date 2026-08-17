@@ -9,6 +9,18 @@ try:
 except ImportError:
     SORTABLES_AVAILABLE = False
 
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_LEFT
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors as rl_colors
+    import io
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+
 # ══════════════════════════════════════════════════════════════════
 # CONFIGURAÇÃO DA PÁGINA
 # ══════════════════════════════════════════════════════════════════
@@ -365,9 +377,6 @@ PERSPECTIVA_LAYER = {
 st.markdown('<div class="brand-title">Escritório de Gestão e Desburocratização de Processos</div>', unsafe_allow_html=True)
 st.markdown('<div class="brand-sub">EPROC / SEPLAN · Plano Estratégico 2026 — Metodologia BSC + SWOT · Consolidado das Etapas 1 a 4</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="brand-title">Escritório de Gestão e Desburocratização de Processos</div>', unsafe_allow_html=True)
-st.markdown('<div class="brand-sub">EPROC / SEPLAN · Plano Estratégico 2026 — Metodologia BSC + SWOT · Consolidado das Etapas 1 a 4</div>', unsafe_allow_html=True)
-
 col_faz, col_nao_faz = st.columns(2)
 with col_faz:
     st.success("✅ **Faz:** mapeamento, redesenho, requisitos de negócio, consultoria de processos.")
@@ -497,17 +506,20 @@ elif step == 1:
         4. No final, cliquem em **"Exportar resultado"** — sem isso, o trabalho se perde se a página recarregar.
 
         **Exemplo prático (🟢 SO — Ofensiva):**
-        Arrastem `💪 Equipe técnica qualificada` (uma Força) e `🚀 Transformação digital` (uma Oportunidade)
+        Arrastem `[FORÇA] Equipe técnica qualificada` e `[OPORT.] Transformação digital`
         para o quadrante verde. No campo de observação, escrevam algo como:
         *"Usar a equipe qualificada em BPM para liderar os projetos de automação que o Estado já está priorizando."*
         Essa frase, depois refinada, vira um objetivo estratégico formal.
         """)
 
     if "tows_board" not in st.session_state:
+        LABEL_DIM = {"Força": "FORÇA", "Fraqueza": "FRAQUEZA", "Oportunidade": "OPORT.", "Ameaça": "AMEAÇA"}
+        TOP_N_POR_DIMENSAO = 6  # reduz o banco aos mais citados de cada quadrante, evita sobrecarga visual
         banco_inicial = []
-        for _, r in swot_data.sort_values("Frequência", ascending=False).iterrows():
-            prefixo = {"Força": "💪", "Fraqueza": "⚠️", "Oportunidade": "🚀", "Ameaça": "🔴"}[r["Dimensão"]]
-            banco_inicial.append(f"{prefixo} {r['Conceito']}")
+        for dim in ["Força", "Fraqueza", "Oportunidade", "Ameaça"]:
+            top_dim = swot_data[swot_data["Dimensão"] == dim].sort_values("Frequência", ascending=False).head(TOP_N_POR_DIMENSAO)
+            for _, r in top_dim.iterrows():
+                banco_inicial.append(f"[{LABEL_DIM[dim]}] {r['Conceito']}")
         st.session_state.tows_board = [
             {"header": "🏦 Banco de Conceitos", "items": banco_inicial},
             {"header": "🟢 SO — Ofensiva", "items": []},
@@ -617,33 +629,91 @@ elif step == 1:
                 placeholder="Qual objetivo surge dessa combinação?"
             )
 
-    # ---------- EXPORTAR RESULTADO ----------
+    # ---------- EXPORTAR RESULTADO (PDF) ----------
     st.divider()
     st.markdown("##### 💾 Salvar o trabalho da equipe")
-    st.caption("Isso gera um arquivo de texto com tudo que foi arrastado e escrito — guardem esse arquivo, é a partir dele que os Objetivos Estratégicos reais (não os que já estão pré-elaborados) devem ser construídos.")
+    st.caption("Isso gera um PDF com tudo que foi arrastado e escrito — guardem esse arquivo, é a partir dele que os Objetivos Estratégicos reais (não os que já estão pré-elaborados) devem ser construídos.")
 
-    linhas_export = ["FOLHA DE CRUZAMENTOS TOWS — EPROC/SEPLAN", "=" * 50, ""]
     board_map = {c["header"]: c["items"] for c in st.session_state.tows_board}
-    for label in labels_obs:
-        linhas_export.append(f"\n{label}")
-        linhas_export.append("-" * len(label))
-        itens = board_map.get(label, [])
-        if itens:
-            for it in itens:
-                linhas_export.append(f"  • {it}")
-        else:
-            linhas_export.append("  (nenhum conceito posicionado)")
-        obs_texto = st.session_state.tows_obs.get(label, "").strip()
-        linhas_export.append(f"  Ideia de objetivo: {obs_texto if obs_texto else '(não preenchido)'}")
+    QUAD_COLORS = {
+        "🟢 SO — Ofensiva": rl_colors.HexColor("#2E8B3A") if REPORTLAB_AVAILABLE else None,
+        "🔵 WO — Reforço": rl_colors.HexColor("#2980B9") if REPORTLAB_AVAILABLE else None,
+        "🟠 ST — Proteção": rl_colors.HexColor(ORANGE) if REPORTLAB_AVAILABLE else None,
+        "🔴 WT — Defensiva": rl_colors.HexColor("#B85C2E") if REPORTLAB_AVAILABLE else None,
+    }
 
-    conteudo_export = "\n".join(linhas_export)
-    st.download_button(
-        "⬇️ Exportar resultado (.txt)",
-        data=conteudo_export,
-        file_name="cruzamentos_tows_equipe.txt",
-        mime="text/plain",
-        use_container_width=True,
-    )
+    def gerar_pdf_cruzamentos():
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, pagesize=A4,
+            topMargin=2 * cm, bottomMargin=2 * cm, leftMargin=2 * cm, rightMargin=2 * cm,
+        )
+        styles = getSampleStyleSheet()
+        style_title = ParagraphStyle("TituloEPROC", parent=styles["Title"], fontSize=18,
+                                      textColor=rl_colors.HexColor(DARK_BLUE), spaceAfter=4)
+        style_sub = ParagraphStyle("SubEPROC", parent=styles["Normal"], fontSize=10,
+                                    textColor=rl_colors.HexColor("#64748B"), spaceAfter=18)
+        style_quad = ParagraphStyle("QuadEPROC", parent=styles["Heading2"], fontSize=13, spaceBefore=14, spaceAfter=6)
+        style_item = ParagraphStyle("ItemEPROC", parent=styles["Normal"], fontSize=10, leftIndent=10, spaceAfter=2)
+        style_obs_label = ParagraphStyle("ObsLabel", parent=styles["Normal"], fontSize=10, fontName="Helvetica-Bold", spaceBefore=6)
+        style_obs = ParagraphStyle("ObsEPROC", parent=styles["Normal"], fontSize=10, leftIndent=10,
+                                    textColor=rl_colors.HexColor(DARK_BLUE), spaceAfter=4, alignment=TA_LEFT)
+
+        elementos = [
+            Paragraph("Folha de Cruzamentos TOWS", style_title),
+            Paragraph("EPROC / SEPLAN — Capacitação de Planejamento Estratégico · resultado da dinâmica em equipe", style_sub),
+        ]
+        for label in labels_obs:
+            cor = QUAD_COLORS[label]
+            style_quad_cor = ParagraphStyle("QuadCor", parent=style_quad, textColor=cor)
+            elementos.append(Paragraph(label, style_quad_cor))
+            elementos.append(HRFlowable(width="100%", thickness=1, color=cor, spaceAfter=6))
+            itens = board_map.get(label, [])
+            if itens:
+                for it in itens:
+                    it_escaped = it.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    elementos.append(Paragraph(f"•&nbsp;&nbsp;{it_escaped}", style_item))
+            else:
+                elementos.append(Paragraph("(nenhum conceito posicionado)", style_item))
+            obs_texto = st.session_state.tows_obs.get(label, "").strip()
+            obs_escaped = (obs_texto if obs_texto else "(não preenchido)").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            elementos.append(Paragraph("Ideia de objetivo:", style_obs_label))
+            elementos.append(Paragraph(obs_escaped, style_obs))
+            elementos.append(Spacer(1, 8))
+
+        doc.build(elementos)
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    if REPORTLAB_AVAILABLE:
+        st.download_button(
+            "⬇️ Exportar resultado (PDF)",
+            data=gerar_pdf_cruzamentos(),
+            file_name="cruzamentos_tows_equipe.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+    else:
+        st.warning("A biblioteca `reportlab` não está instalada — exportando em texto simples. Rode `pip install reportlab` para exportar em PDF.")
+        linhas_export = ["FOLHA DE CRUZAMENTOS TOWS — EPROC/SEPLAN", "=" * 50, ""]
+        for label in labels_obs:
+            linhas_export.append(f"\n{label}")
+            linhas_export.append("-" * len(label))
+            itens = board_map.get(label, [])
+            if itens:
+                for it in itens:
+                    linhas_export.append(f"  • {it}")
+            else:
+                linhas_export.append("  (nenhum conceito posicionado)")
+            obs_texto = st.session_state.tows_obs.get(label, "").strip()
+            linhas_export.append(f"  Ideia de objetivo: {obs_texto if obs_texto else '(não preenchido)'}")
+        st.download_button(
+            "⬇️ Exportar resultado (.txt)",
+            data="\n".join(linhas_export),
+            file_name="cruzamentos_tows_equipe.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
 # ══════════════════════════════════════════════════════════════════
 # STEP 2 — CRUZAMENTOS TOWS
 # ══════════════════════════════════════════════════════════════════
