@@ -740,8 +740,7 @@ elif step == 3:
         st.markdown("""
         <div class="source-card">
         💡 <b>Alinhamento de escopo institucional:</b> o EPROC posiciona-se como <b>consultoria interna de negócios
-        e desburocratização</b>. O escritório mapeia, simplifica e entrega requisitos prontos — a codificação e o
-        desenvolvimento tecnológico permanecem sob responsabilidade dos times de TI/SCTI.
+        e desburocratização</b>. O escritório mapeia, simplifica e entrega requisitos prontos
         </div>
         """, unsafe_allow_html=True)
 
