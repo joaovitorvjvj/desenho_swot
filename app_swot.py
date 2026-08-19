@@ -288,42 +288,42 @@ tows_data = pd.DataFrame([
 
 objetivos_data = pd.DataFrame([
     {"Nº": 1, "Perspectiva": "Processos Internos / Tecnologia",
-     "Objetivo": "Consolidar o EPROC como unidade de referência em mapeamento de processos e levantamento de requisitos, atuando como consultoria de negócio nas iniciativas de automação conduzidas pelo Estado.",
+     "Objetivo": "Atender, até 2027, 100% das iniciativas de automação priorizadas pelo Estado com levantamento de requisitos de negócio formalizado, consolidando o EPROC como unidade de referência em mapeamento de processos.",
      "Eixo": "Desburocratização"},
     {"Nº": 2, "Perspectiva": "Governança",
-     "Objetivo": "Institucionalizar, via normativo formal, a participação obrigatória do EPROC em processos de criação, reestruturação ou extinção de secretarias, diretorias, gerências e empresas públicas, padronizando a transferência de conhecimento, papéis e atividades.",
+     "Objetivo": "Institucionalizar, até 2027, via normativo formal publicado, a participação obrigatória do EPROC em todos os processos de criação, reestruturação ou extinção de secretarias, diretorias, gerências e empresas públicas.",
      "Eixo": "Autonomia"},
     {"Nº": 3, "Perspectiva": "Inovação",
-     "Objetivo": "Atualizar continuamente a metodologia EPROC com base em práticas de mercado e benchmarking interinstitucional, consolidando-se como referência metodológica em gestão por processos no setor público estadual.",
+     "Objetivo": "Atualizar a metodologia EPROC anualmente até 2027, com pelo menos 2 benchmarkings formais documentados por ano, consolidando-se como referência metodológica em gestão por processos no setor público estadual.",
      "Eixo": "Empreendedorismo/Inovação"},
     {"Nº": 4, "Perspectiva": "Resultados",
-     "Objetivo": "Consolidar o EPROC como agente de desburocratização do Poder Executivo estadual.",
+     "Objetivo": "Comprovar, até 2027, a redução de tempo e etapas em pelo menos 15 processos mapeados pelo EPROC, consolidando-o como agente de desburocratização do Poder Executivo estadual.",
      "Eixo": "Desburocratização"},
     {"Nº": 5, "Perspectiva": "Pessoas",
-     "Objetivo": "Qualificar o processo de seleção e desenvolvimento de bolsistas do EPROC, com foco em perfil de negócio em processos e automação, para sustentar a qualidade técnica independentemente da rotatividade inerente ao modelo de bolsas.",
+     "Objetivo": "Implementar, até 2027, trilha de onboarding técnico para 100% dos novos bolsistas admitidos, sustentando a qualidade técnica do EPROC independentemente da rotatividade inerente ao modelo de bolsas.",
      "Eixo": "Autonomia"},
     {"Nº": 6, "Perspectiva": "Orçamentária",
-     "Objetivo": "Maximizar o retorno institucional do investimento orçamentário do EPROC, direcionando recursos para a formação de corpo técnico especializado e comprovando ganhos de eficiência nos órgãos atendidos.",
+     "Objetivo": "Comprovar, até 2027, o retorno institucional do investimento orçamentário do EPROC (~R$2M/ano), com relatório anual de ganhos de eficiência apresentado à alta gestão.",
      "Eixo": "Autonomia"},
     {"Nº": 7, "Perspectiva": "Sustentabilidade",
-     "Objetivo": "Fortalecer o relacionamento institucional do EPROC com os órgãos atendidos, consolidando a rede de NUPROCs como canal permanente de engajamento e colaboração.",
+     "Objetivo": "Consolidar, até 2027, a rede de NUPROCs com 100% dos pontos focais mapeados e ao menos 4 encontros de alinhamento realizados por ano.",
      "Eixo": "Autonomia"},
 ])
 
 INDICADORES = {
-    1: [("Processos mapeados como consultoria pré-automação", "Contagem de entregas BPMN + IT", "A definir", "Trimestral", "🗂️"),
+    1: [("Processos mapeados como consultoria pré-automação", "Contagem de entregas BPMN + IT", "100% das iniciativas priorizadas", "Trimestral", "🗂️"),
         ("Aderência ao checklist de requisitos", "% de processos que seguiram o checklist padrão", "100%", "Contínua", "✅")],
-    2: [("Normativo formal publicado", "Existência de decreto/instrução vigente", "Publicado", "Marco único", "📜"),
+    2: [("Normativo formal publicado", "Existência de decreto/instrução vigente", "Publicado até 2027", "Marco único", "📜"),
         ("Transições acompanhadas pelo EPROC", "Transições com EPROC envolvido / total", "100% pós-normativo", "Semestral", "🏛️")],
-    3: [("Benchmarkings realizados", "Contagem de benchmarkings documentados", "2/ano", "Semestral", "🔎"),
+    3: [("Benchmarkings realizados", "Contagem de benchmarkings documentados", "2/ano até 2027", "Semestral", "🔎"),
         ("Versão da metodologia publicada", "Nº de revisões formais", "1/ano", "Anual", "📘")],
-    4: [("Redução média de etapas (AS-IS x TO-BE)", "(Etapas AS-IS − TO-BE) / AS-IS", "A definir", "Anual", "⚡"),
+    4: [("Redução média de etapas (AS-IS x TO-BE)", "(Etapas AS-IS − TO-BE) / AS-IS", "≥ 15 processos até 2027", "Anual", "⚡"),
         ("Órgãos atendidos com processo desburocratizado", "Órgãos distintos com TO-BE implementado", "A definir", "Anual", "🏢")],
     5: [("Rotatividade de bolsistas", "Saídas / média de bolsistas ativos", "Reduzir vs. baseline", "Semestral", "🔄"),
-        ("Onboarding concluído", "Concluintes / total admitidos", "100%", "Contínua", "🎓")],
-    6: [("ROI institucional do EPROC", "Ganhos de eficiência valorados / custo total", "A definir", "Anual", "💰"),
+        ("Onboarding concluído", "Concluintes / total admitidos", "100% até 2027", "Contínua", "🎓")],
+    6: [("ROI institucional do EPROC", "Ganhos de eficiência valorados / custo total", "Relatório anual até 2027", "Anual", "💰"),
         ("Custo médio por processo mapeado", "Custo total / nº de processos", "Reduzir vs. baseline", "Semestral", "📉")],
-    7: [("Pontos focais NUPROC ativos", "Atualizados / total de órgãos c/ NUPROC", "100%", "Semestral", "🌐"),
+    7: [("Pontos focais NUPROC ativos", "Atualizados / total de órgãos c/ NUPROC", "100% até 2027", "Semestral", "🌐"),
         ("Encontros de alinhamento com a rede", "Reuniões formais registradas", "4/ano", "Trimestral", "🤝")],
 }
 
@@ -740,7 +740,8 @@ elif step == 3:
         st.markdown("""
         <div class="source-card">
         💡 <b>Alinhamento de escopo institucional:</b> o EPROC posiciona-se como <b>consultoria interna de negócios
-        e desburocratização</b>. O escritório mapeia, simplifica e entrega requisitos prontos
+        e desburocratização</b>. O escritório mapeia, simplifica e entrega requisitos prontos — a codificação e o
+        desenvolvimento tecnológico permanecem sob responsabilidade dos times de TI/SCTI.
         </div>
         """, unsafe_allow_html=True)
 
