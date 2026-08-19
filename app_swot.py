@@ -286,6 +286,42 @@ tows_data = pd.DataFrame([
      "Objetivo gerado": "7 — Relacionamento institucional e rede NUPROC"},
 ])
 
+# Direcionadores Estratégicos — resumo objetivo de cada postura TOWS (SO/WO/ST/WT),
+# construído a partir do campo "Racional" já existente em tows_data (não é texto novo,
+# é a consolidação dos racionais dos objetivos de cada tipo). Nomenclatura conforme
+# template oficial da capacitação: Crescimento=SO, Desenvolvimento=WO, Defesa=ST,
+# Sobrevivência=WT.
+DIRECIONADORES = [
+    {
+        "Tipo": "SO", "Nome": "Estratégia de Crescimento", "Subtitulo": "Expansão e Posicionamento Institucional",
+        "Origem": "Racionais dos Objetivos 1 e 3",
+        "Texto": "Usar a metodologia e a expertise técnica consolidada do EPROC para atuar como "
+                 "consultoria de negócio nas iniciativas de automação do Estado, com atualização "
+                 "metodológica contínua via benchmarking — sem assumir desenvolvimento tecnológico próprio.",
+    },
+    {
+        "Tipo": "WO", "Nome": "Estratégia de Desenvolvimento", "Subtitulo": "Modernização Estrutural e Transformação",
+        "Origem": "Racional do Objetivo 5",
+        "Texto": "Sem viabilidade de concurso público no curto prazo, qualificar o processo de "
+                 "seleção e desenvolvimento de bolsistas para reforçar a estrutura interna do "
+                 "EPROC com os recursos já disponíveis.",
+    },
+    {
+        "Tipo": "ST", "Nome": "Estratégia de Defesa", "Subtitulo": "Proteção Institucional e Resiliência",
+        "Origem": "Racional do Objetivo 6",
+        "Texto": "Reformular a lógica de defesa orçamentária para comprovação de retorno "
+                 "institucional do investimento já existente (~R$2M/ano), usando o patrocínio da "
+                 "alta gestão como argumento de proteção.",
+    },
+    {
+        "Tipo": "WT", "Nome": "Estratégia de Sobrevivência", "Subtitulo": "Governança, Controle e Mitigação de Riscos",
+        "Origem": "Racionais dos Objetivos 2 e 4",
+        "Texto": "A maior ameaça da coleta — mudança política — só é mitigada com mandato formal, "
+                 "não apoio informal; e diante da instabilidade tecnológica, medir resultado real "
+                 "em vez de prometer automação própria.",
+    },
+]
+
 objetivos_data = pd.DataFrame([
     {"Nº": 1, "Perspectiva": "Processos Internos / Tecnologia",
      "Objetivo": "Atender, até 2027, 100% das iniciativas de automação priorizadas pelo Estado com levantamento de requisitos de negócio formalizado, consolidando o EPROC como unidade de referência em mapeamento de processos.",
@@ -717,6 +753,24 @@ elif step == 2:
         st.subheader("🔗 Cruzamentos TOWS que originaram os Objetivos")
         st.caption("Cada cruzamento combina fatores internos (Força/Fraqueza) com fatores externos (Oportunidade/Ameaça) para gerar um objetivo estratégico.")
 
+        st.markdown("##### 🧭 Direcionadores Estratégicos")
+        st.caption("Resumo objetivo de cada postura, consolidado a partir do racional de validação dos objetivos de cada tipo — não é texto novo, é a essência da SWOT já registrada abaixo.")
+        DIRECIONADOR_COLOR = {"SO": DARK_BLUE, "WO": "#2980B9", "ST": ORANGE, "WT": "#B85C2E"}
+        dir_cols = st.columns(4)
+        for col, d in zip(dir_cols, DIRECIONADORES):
+            with col:
+                st.markdown(f"""
+                <div class="card-box" style="border-left-color:{DIRECIONADOR_COLOR[d['Tipo']]}; min-height:100%;">
+                    <span class="metric-badge" style="background-color:{DIRECIONADOR_COLOR[d['Tipo']]};">{d['Tipo']}</span>
+                    <h5 style="margin:8px 0 2px 0; color:{DIRECIONADOR_COLOR[d['Tipo']]};">{d['Nome']}</h5>
+                    <small style="color:#8A93A3;">{d['Subtitulo']}</small>
+                    <p style="font-size:12.5px; color:#334155; margin-top:8px;">{d['Texto']}</p>
+                    <small style="color:#8A93A3; font-style:italic;">Origem: {d['Origem']}</small>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.divider()
+        st.markdown("##### 📋 Cruzamentos individuais por objetivo")
         tipo_labels = {"SO": "🟢 SO — Ofensiva", "WO": "🔵 WO — Reforço", "ST": "🟠 ST — Proteção", "WT": "🔴 WT — Defensiva"}
         for _, row in tows_data.iterrows():
             st.markdown(f"""
