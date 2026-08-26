@@ -4,12 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 try:
-    import streamlit_sortables as sortables
-    SORTABLES_AVAILABLE = True
-except ImportError:
-    SORTABLES_AVAILABLE = False
-
-try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm
     from reportlab.lib.enums import TA_LEFT
@@ -49,7 +43,7 @@ UNLOCK_PASSWORD = "eproc2026"
 
 STEPS = [
     {"label": "Diagnóstico", "icon": "📊", "sub": "SWOT consolidada", "locked": False},
-    {"label": "Cruzamentos", "icon": "🧩", "sub": "Dinâmica em equipe", "locked": False},
+    {"label": "Cruzamentos", "icon": "🧩", "sub": "Cascata TOWS", "locked": False},
     {"label": "Cruzamentos TOWS", "icon": "🔗", "sub": "Matriz TOWS", "locked": True},
     {"label": "Objetivos", "icon": "🎯", "sub": "Formato BSC", "locked": True},
     {"label": "Mapa", "icon": "🗺️", "sub": "Causa e efeito", "locked": True},
@@ -552,238 +546,55 @@ if step == 0:
         st.dataframe(filtered[["Dimensão", "Conceito", "Frequência", "Detalhe"]], use_container_width=True, hide_index=True)
 
 # ══════════════════════════════════════════════════════════════════
-# STEP 1 — FOLHA DE CRUZAMENTOS (dinâmica em equipe, interativa)
+# STEP 1 — CRUZAMENTOS TOWS (cascata de decisão — estático)
 # ══════════════════════════════════════════════════════════════════
 elif step == 1:
-    st.subheader("🧩 Folha de Cruzamentos TOWS — Dinâmica em Equipe")
-    st.caption("Arrastem os conceitos da SWOT (banco acima) para dentro do quadrante de cruzamento correspondente (abaixo). Um mesmo conceito pode ser usado em mais de um cruzamento.")
+    st.subheader("🧩 Cascata de Decisão TOWS")
+    st.caption("Cada cruzamento combina um fator interno (Força ou Fraqueza) com um fator externo (Oportunidade ou Ameaça), gerando um direcionador estratégico que orienta os objetivos.")
 
-    with st.expander("❓ Como funciona esta dinâmica — clique para ver a explicação e um exemplo", expanded=True):
-        st.markdown("""
-        **O que é um cruzamento TOWS:** cada tipo combina um fator **interno** (Força ou Fraqueza) com um fator
-        **externo** (Oportunidade ou Ameaça). Dessa combinação nasce a ideia de um objetivo estratégico.
-
-        | Tipo | Combinação | Pergunta-guia |
-        |---|---|---|
-        | 🟢 SO — Ofensiva | Força + Oportunidade | Como usar uma força para aproveitar uma oportunidade? |
-        | 🔵 WO — Reforço | Fraqueza + Oportunidade | Como aproveitar uma oportunidade para reduzir uma fraqueza? |
-        | 🟠 ST — Proteção | Força + Ameaça | Como usar uma força para se proteger de uma ameaça? |
-        | 🔴 WT — Defensiva | Fraqueza + Ameaça | Como reduzir uma fraqueza pra não ficar exposto a uma ameaça? |
-
-        **Passo a passo:**
-        1. Leiam os conceitos no banco (topo) — eles já vêm do diagnóstico SWOT, do mais citado pro menos citado.
-        2. Arrastem 1 conceito interno + 1 conceito externo para o quadrante de cruzamento que fizer sentido.
-        3. Escrevam no campo de observação (mais abaixo) a ideia de objetivo que surge dali.
-        4. No final, cliquem em **"Exportar resultado"** — sem isso, o trabalho se perde se a página recarregar.
-
-        **Exemplo prático (🟢 SO — Ofensiva):**
-        Arrastem `[FORÇA] Equipe técnica qualificada` e `[OPORT.] Transformação digital`
-        para o quadrante verde. No campo de observação, escrevam algo como:
-        *"Usar a equipe qualificada em BPM para liderar os projetos de automação que o Estado já está priorizando."*
-        Essa frase, depois refinada, vira um objetivo estratégico formal.
-        """)
-
-    if "tows_board" not in st.session_state:
-        LABEL_DIM = {"Força": "FORÇA", "Fraqueza": "FRAQUEZA", "Oportunidade": "OPORT.", "Ameaça": "AMEAÇA"}
-        banco_inicial = []
-        for dim in ["Força", "Fraqueza", "Oportunidade", "Ameaça"]:
-            todos_dim = swot_data[swot_data["Dimensão"] == dim].sort_values("Frequência", ascending=False)
-            for _, r in todos_dim.iterrows():
-                banco_inicial.append(f"[{LABEL_DIM[dim]}] {r['Conceito']}")
-        st.session_state.tows_board = [
-            {"header": "🏦 Banco de Conceitos", "items": banco_inicial},
-            {"header": "🟢 SO — Ofensiva", "items": []},
-            {"header": "🔵 WO — Reforço", "items": []},
-            {"header": "🟠 ST — Proteção", "items": []},
-            {"header": "🔴 WT — Defensiva", "items": []},
-        ]
-
-    if SORTABLES_AVAILABLE:
-        # Layout: o banco (1º container) ocupa a linha inteira sozinho no topo;
-        # os 4 quadrantes de cruzamento quebram pra linha de baixo e ficam lado a lado.
-        # Truque: flex-wrap + o 1º item com flex-basis:100% força a quebra de linha.
-        custom_style = f"""
-        .sortable-component {{
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 14px;
-            align-items: flex-start;
-        }}
-        .sortable-container {{
-            background-color: {WHITE};
-            border-radius: 12px;
-            border: 1px solid #E2E4E9;
-            box-shadow: 0 2px 10px rgba(13,27,42,0.05);
-            flex: 1 1 200px;
-            min-width: 200px;
-        }}
-        .sortable-container:first-of-type {{
-            flex: 1 1 100%;
-            min-width: 100%;
-        }}
-        .sortable-container-header {{
-            background-color: {DARK_BLUE};
-            color: {WHITE};
-            font-weight: 700;
-            padding: 10px 12px;
-            border-radius: 12px 12px 0 0;
-            font-size: 13px;
-        }}
-        .sortable-container-body {{
-            background-color: {WHITE};
-            padding: 10px;
-        }}
-        .sortable-container:first-of-type .sortable-container-body {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            max-height: 280px;
-            overflow-y: auto;
-        }}
-        .sortable-container:not(:first-of-type) .sortable-container-body {{
-            min-height: 220px;
-        }}
-        .sortable-item {{
-            background-color: {LIGHT_GRAY};
-            border: 1px solid #E2E4E9;
-            border-radius: 8px;
-            padding: 8px 10px;
-            margin-bottom: 6px;
-            font-size: 12.5px;
-            color: {DARK_BLUE};
-        }}
-        .sortable-container:first-of-type .sortable-item {{
-            margin-bottom: 0;
-            flex: 0 0 auto;
-        }}
-        .sortable-item:hover {{ border-color: {ORANGE}; }}
-        """
-        st.session_state.tows_board = sortables.sort_items(
-            st.session_state.tows_board,
-            multi_containers=True,
-            direction="horizontal",
-            custom_style=custom_style,
-            key="tows_sortable_widget",
-        )
-    else:
-        st.warning("A biblioteca `streamlit-sortables` não está instalada — usando alternativa por seleção. Rode `pip install streamlit-sortables` para arrastar de verdade.")
-        board_lookup = {c["header"]: c["items"] for c in st.session_state.tows_board}
-        todos_itens = st.session_state.tows_board[0]["items"] + [
-            it for c in st.session_state.tows_board[1:] for it in c["items"]
-        ]
-        for c in st.session_state.tows_board[1:]:
-            selecionados = st.multiselect(c["header"], options=sorted(set(todos_itens)), default=c["items"], key=f"ms_{c['header']}")
-            c["items"] = selecionados
-
-    st.write("")
-    col_reset, col_count = st.columns([1, 3])
-    with col_reset:
-        if st.button("↺ Reiniciar quadro"):
-            del st.session_state["tows_board"]
-            st.rerun()
-    with col_count:
-        usados = sum(len(c["items"]) for c in st.session_state.tows_board[1:])
-        st.caption(f"{usados} conceito(s) já posicionados nos quadrantes de cruzamento.")
-
-    st.divider()
-    st.markdown("##### 📝 Observações — ideia de objetivo por cruzamento")
-    obs_cols = st.columns(4)
-    labels_obs = ["🟢 SO — Ofensiva", "🔵 WO — Reforço", "🟠 ST — Proteção", "🔴 WT — Defensiva"]
-    if "tows_obs" not in st.session_state:
-        st.session_state.tows_obs = {l: "" for l in labels_obs}
-    for c, label in zip(obs_cols, labels_obs):
-        with c:
-            st.session_state.tows_obs[label] = st.text_area(
-                label, value=st.session_state.tows_obs.get(label, ""),
-                height=140, key=f"obs_{label}",
-                placeholder="Qual objetivo surge dessa combinação?"
-            )
-
-    # ---------- EXPORTAR RESULTADO (PDF) ----------
-    st.divider()
-    st.markdown("##### 💾 Salvar o trabalho da equipe")
-    st.caption("Isso gera um PDF com tudo que foi arrastado e escrito — guardem esse arquivo, é a partir dele que os Objetivos Estratégicos reais (não os que já estão pré-elaborados) devem ser construídos.")
-
-    board_map = {c["header"]: c["items"] for c in st.session_state.tows_board}
-    QUAD_COLORS = {
-        "🟢 SO — Ofensiva": rl_colors.HexColor("#2E8B3A") if REPORTLAB_AVAILABLE else None,
-        "🔵 WO — Reforço": rl_colors.HexColor("#2980B9") if REPORTLAB_AVAILABLE else None,
-        "🟠 ST — Proteção": rl_colors.HexColor(ORANGE) if REPORTLAB_AVAILABLE else None,
-        "🔴 WT — Defensiva": rl_colors.HexColor("#B85C2E") if REPORTLAB_AVAILABLE else None,
+    TIPO_CONFIG = {
+        "SO": {"label": "🟢 Crescimento",   "cor": "#2E8B3A", "combo": "Forças × Oportunidades",  "pergunta": "Como usar uma força para aproveitar uma oportunidade?"},
+        "WO": {"label": "🔵 Desenvolvimento","cor": "#2980B9", "combo": "Fraquezas × Oportunidades","pergunta": "Como aproveitar uma oportunidade para reduzir uma fraqueza?"},
+        "ST": {"label": "🟠 Defesa",         "cor": "#EC671C", "combo": "Forças × Ameaças",         "pergunta": "Como usar uma força para se proteger de uma ameaça?"},
+        "WT": {"label": "🔴 Sobrevivência",  "cor": "#B85C2E", "combo": "Fraquezas × Ameaças",      "pergunta": "Como reduzir uma fraqueza para não ficar exposto a uma ameaça?"},
     }
 
-    def gerar_pdf_cruzamentos():
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buffer, pagesize=A4,
-            topMargin=2 * cm, bottomMargin=2 * cm, leftMargin=2 * cm, rightMargin=2 * cm,
-        )
-        styles = getSampleStyleSheet()
-        style_title = ParagraphStyle("TituloEPROC", parent=styles["Title"], fontSize=18,
-                                      textColor=rl_colors.HexColor(DARK_BLUE), spaceAfter=4)
-        style_sub = ParagraphStyle("SubEPROC", parent=styles["Normal"], fontSize=10,
-                                    textColor=rl_colors.HexColor("#64748B"), spaceAfter=18)
-        style_quad = ParagraphStyle("QuadEPROC", parent=styles["Heading2"], fontSize=13, spaceBefore=14, spaceAfter=6)
-        style_item = ParagraphStyle("ItemEPROC", parent=styles["Normal"], fontSize=10, leftIndent=10, spaceAfter=2)
-        style_obs_label = ParagraphStyle("ObsLabel", parent=styles["Normal"], fontSize=10, fontName="Helvetica-Bold", spaceBefore=6)
-        style_obs = ParagraphStyle("ObsEPROC", parent=styles["Normal"], fontSize=10, leftIndent=10,
-                                    textColor=rl_colors.HexColor(DARK_BLUE), spaceAfter=4, alignment=TA_LEFT)
+    for _, row in tows_data.iterrows():
+        cfg = TIPO_CONFIG.get(row["Tipo"], {})
+        cor = cfg.get("cor", DARK_BLUE)
+        label = cfg.get("label", row["Tipo"])
+        combo = cfg.get("combo", "")
+        pergunta = cfg.get("pergunta", "")
 
-        elementos = [
-            Paragraph("Folha de Cruzamentos TOWS", style_title),
-            Paragraph("EPROC / SEPLAN — Capacitação de Planejamento Estratégico · resultado da dinâmica em equipe", style_sub),
-        ]
-        for label in labels_obs:
-            cor = QUAD_COLORS[label]
-            style_quad_cor = ParagraphStyle("QuadCor", parent=style_quad, textColor=cor)
-            elementos.append(Paragraph(label, style_quad_cor))
-            elementos.append(HRFlowable(width="100%", thickness=1, color=cor, spaceAfter=6))
-            itens = board_map.get(label, [])
-            if itens:
-                for it in itens:
-                    it_escaped = it.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                    elementos.append(Paragraph(f"•&nbsp;&nbsp;{it_escaped}", style_item))
-            else:
-                elementos.append(Paragraph("(nenhum conceito posicionado)", style_item))
-            obs_texto = st.session_state.tows_obs.get(label, "").strip()
-            obs_escaped = (obs_texto if obs_texto else "(não preenchido)").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            elementos.append(Paragraph("Ideia de objetivo:", style_obs_label))
-            elementos.append(Paragraph(obs_escaped, style_obs))
-            elementos.append(Spacer(1, 8))
+        st.markdown(f"""
+        <div style="background:{WHITE}; border-radius:12px; border-left:6px solid {cor};
+                    box-shadow:0 2px 10px rgba(13,27,42,0.07); padding:18px 22px; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+                <span style="background:{cor}; color:#fff; padding:4px 14px; border-radius:20px;
+                             font-weight:700; font-size:12px; text-transform:uppercase;">{label}</span>
+                <span style="color:#8A93A3; font-size:12px;">{combo}</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                <div style="background:#EEF2F6; border-radius:8px; padding:10px 14px;">
+                    <div style="font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase; margin-bottom:4px;">Fator Interno</div>
+                    <div style="font-size:12.5px; color:{DARK_BLUE}; white-space:pre-line;">{row["Origem"]}</div>
+                </div>
+                <div style="background:#FFF4EC; border-radius:8px; padding:10px 14px;">
+                    <div style="font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase; margin-bottom:4px;">Fator Externo</div>
+                    <div style="font-size:12.5px; color:{DARK_BLUE}; white-space:pre-line;">{row["Cruzado com"]}</div>
+                </div>
+            </div>
+            <div style="background:#F4F5F7; border-radius:8px; padding:10px 14px; margin-bottom:8px;">
+                <div style="font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase; margin-bottom:4px;">↓ Direcionador Estratégico</div>
+                <div style="font-size:13px; color:{DARK_BLUE}; font-style:italic;">{row["Texto_direcionador"]}</div>
+            </div>
+            <div style="font-size:11.5px; color:#64748B;">
+                <b>Origina:</b> perspectiva <b>{row["Objetivo gerado"]}</b>
+                &nbsp;·&nbsp; <i>{pergunta}</i>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        doc.build(elementos)
-        buffer.seek(0)
-        return buffer.getvalue()
-
-    if REPORTLAB_AVAILABLE:
-        st.download_button(
-            "⬇️ Exportar resultado (PDF)",
-            data=gerar_pdf_cruzamentos(),
-            file_name="cruzamentos_tows_equipe.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
-    else:
-        st.warning("A biblioteca `reportlab` não está instalada — exportando em texto simples. Rode `pip install reportlab` para exportar em PDF.")
-        linhas_export = ["FOLHA DE CRUZAMENTOS TOWS — EPROC/SEPLAN", "=" * 50, ""]
-        for label in labels_obs:
-            linhas_export.append(f"\n{label}")
-            linhas_export.append("-" * len(label))
-            itens = board_map.get(label, [])
-            if itens:
-                for it in itens:
-                    linhas_export.append(f"  • {it}")
-            else:
-                linhas_export.append("  (nenhum conceito posicionado)")
-            obs_texto = st.session_state.tows_obs.get(label, "").strip()
-            linhas_export.append(f"  Ideia de objetivo: {obs_texto if obs_texto else '(não preenchido)'}")
-        st.download_button(
-            "⬇️ Exportar resultado (.txt)",
-            data="\n".join(linhas_export),
-            file_name="cruzamentos_tows_equipe.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
 # ══════════════════════════════════════════════════════════════════
 # STEP 2 — CRUZAMENTOS TOWS
 # ══════════════════════════════════════════════════════════════════
@@ -806,7 +617,7 @@ elif step == 2:
                     <h5 style="margin:8px 0 2px 0; color:{DIRECIONADOR_COLOR[d['Tipo']]};">{d['Nome']}</h5>
                     <small style="color:#8A93A3;">{d['Subtitulo']}</small>
                     <p style="font-size:12.5px; color:#334155; margin-top:8px;">{d['Texto']}</p>
-                    <small style="color:#8A93A3; font-style:italic;">Origem: {d['Origem']}</small>
+
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -820,7 +631,7 @@ elif step == 2:
                 <span class="metric-badge orange" style="margin-left:6px;">{row['Objetivo gerado']}</span>
                 <p style="margin-top:10px; margin-bottom:4px;"><b>Origem (interno):</b> {row['Origem']}</p>
                 <p style="margin-bottom:8px;"><b>Cruzado com (externo):</b> {row['Cruzado com']}</p>
-                <small style="color:#64748B;"><b>Racional de validação:</b> {row['Racional']}</small>
+                <small style="color:#64748B;"><b>Direcionador gerado:</b> {row['Texto_direcionador']}</small>
             </div>
             """, unsafe_allow_html=True)
 
