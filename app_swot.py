@@ -333,7 +333,7 @@ objetivos_data = pd.DataFrame([
     {
         "Nº": 3,
         "Perspectiva": "Pessoas",
-        "Objetivo": "Qualificar 100% dos novos bolsistas por meio de uma trilha estruturada de seleção, capacitação e desenvolvimento técnico, assegurando a continuidade da capacidade operacional do EPROC.",
+        "Objetivo": "Ampliar em X% a capacidade de atendimento do EPROC sem aumento proporcional de equipe, por meio de padronização de métodos, automação de rotinas administrativas e fortalecimento da rede NUPROC.",
         "Direcionador": "Desenvolvimento",
     },
     {
