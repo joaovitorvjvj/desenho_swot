@@ -37,41 +37,16 @@ LIGHT_GRAY = "#F4F5F7"
 # usado no Mapa Estratégico para reforçar visualmente "da fundação ao resultado"
 LAYER_COLORS = {1: "#0D1B2A", 2: "#3D4F63", 3: "#B85C2E", 4: "#EC671C"}
 
-# Senha para liberar as etapas já elaboradas pela coordenação.
-# TROQUE por uma senha sua antes de usar com a equipe.
-UNLOCK_PASSWORD = "eproc2026"
-
 STEPS = [
-    {"label": "Diagnóstico", "icon": "📊", "sub": "SWOT consolidada", "locked": False},
-    {"label": "Cruzamentos", "icon": "🧩", "sub": "Cascata TOWS", "locked": False},
-    {"label": "Cruzamentos TOWS", "icon": "🔗", "sub": "Matriz TOWS", "locked": True},
-    {"label": "Objetivos", "icon": "🎯", "sub": "Formato BSC", "locked": True},
-    {"label": "Mapa", "icon": "🗺️", "sub": "Causa e efeito", "locked": True},
-    {"label": "Ações", "icon": "📋", "sub": "Plano de execução", "locked": True},
-    {"label": "Indicadores", "icon": "📈", "sub": "KPIs", "locked": True},
-    {"label": "Metodologia", "icon": "ℹ️", "sub": "Fontes e critérios", "locked": False},
+    {"label": "Diagnóstico", "icon": "📊", "sub": "SWOT consolidada"},
+    {"label": "Cruzamentos", "icon": "🧩", "sub": "Cascata TOWS"},
+    {"label": "Direcionadores", "icon": "🧭", "sub": "Estratégias TOWS"},
+    {"label": "Objetivos", "icon": "🎯", "sub": "Perspectivas BSC"},
+    {"label": "Mapa", "icon": "🗺️", "sub": "Causa e efeito"},
+    {"label": "Ações", "icon": "📋", "sub": "Plano de execução"},
+    {"label": "Indicadores", "icon": "📈", "sub": "KPIs"},
+    {"label": "Metodologia", "icon": "ℹ️", "sub": "Fontes e critérios"},
 ]
-
-def render_lock_screen(label):
-    st.markdown(f"""
-    <div class="note-card" style="text-align:center; padding:46px 24px;">
-        <div style="font-size:44px; margin-bottom:8px;">🔒</div>
-        <div style="font-family:'Bebas Neue'; font-size:22px; letter-spacing:1px; color:{DARK_BLUE};">EM CONSTRUÇÃO</div>
-        <p style="max-width:520px; margin:10px auto 0 auto; color:#7A3B12;">
-            O conteúdo de <b>{label}</b> já foi elaborado pela coordenação, mas fica reservado até a equipe
-            concluir a dinâmica de cruzamentos. Peça a senha ao facilitador para liberar a visualização.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    c1, c2, c3 = st.columns([1, 1, 1])
-    with c2:
-        pwd = st.text_input("Senha de desbloqueio", type="password", key=f"pwd_inline_{label}")
-        if st.button("Desbloquear", key=f"btn_inline_{label}", use_container_width=True):
-            if pwd == UNLOCK_PASSWORD:
-                st.session_state.unlocked = True
-                st.rerun()
-            else:
-                st.error("Senha incorreta.")
 
 # ══════════════════════════════════════════════════════════════════
 # ESTILO GLOBAL
@@ -282,6 +257,7 @@ tows_data = pd.DataFrame([
         "Cruzado com": "AMEAÇAS\nTroca de governo (4)\nConcorrência de consultorias externas (4)",
         "Direcionador": "Defesa",
         "Texto_direcionador": "Converter as forças institucionais em mecanismos de proteção contra descontinuidade administrativa, demonstrando objetivamente o valor gerado pelo EPROC para o Poder Executivo estadual.",
+
         "Objetivo gerado": "Resultados",
     },
     {
@@ -448,24 +424,6 @@ PERSPECTIVA_LAYER = {
 st.markdown('<div class="brand-title">Escritório de Gestão e Desburocratização de Processos</div>', unsafe_allow_html=True)
 st.markdown('<div class="brand-sub">EPROC / SEPLAN · Plano Estratégico 2026 — Metodologia BSC + SWOT · Consolidado das Etapas 1 a 4</div>', unsafe_allow_html=True)
 
-with st.expander("🔒 Conteúdo avançado (Objetivos, Mapa, Ações, Indicadores)" if not st.session_state.get("unlocked", False) else "🔓 Conteúdo avançado liberado"):
-    if st.session_state.get("unlocked", False):
-        st.caption("O conteúdo avançado está liberado para esta sessão.")
-        if st.button("Bloquear novamente"):
-            st.session_state.unlocked = False
-            st.rerun()
-    else:
-        st.caption("Objetivos, Mapa, Ações e Indicadores ficam reservados até a equipe concluir a dinâmica de cruzamentos.")
-        col_pwd, col_btn = st.columns([3, 1])
-        with col_pwd:
-            pwd_top = st.text_input("Senha do facilitador", type="password", key="pwd_top", label_visibility="collapsed", placeholder="Senha do facilitador")
-        with col_btn:
-            if st.button("Desbloquear", use_container_width=True, key="btn_top"):
-                if pwd_top == UNLOCK_PASSWORD:
-                    st.session_state.unlocked = True
-                    st.rerun()
-                else:
-                    st.error("Senha incorreta.")
 
 # ══════════════════════════════════════════════════════════════════
 # STEPPER — navegação sequencial
@@ -486,14 +444,13 @@ cols = st.columns(n_steps)
 for i, (col, step_info) in enumerate(zip(cols, STEPS)):
     with col:
         state = "current" if i == st.session_state.step_idx else ("done" if i < st.session_state.step_idx else "")
-        is_locked = step_info["locked"] and not st.session_state.get("unlocked", False)
-        icon = "🔒" if is_locked else step_info["icon"]
-        sub_label = "Em construção" if is_locked else step_info["sub"]
+        icon = step_info["icon"]
+        sub_label = step_info["sub"]
         st.markdown(f"""
         <div class="step-node">
-            <div class="step-circle {state}" style="{'opacity:0.55;' if is_locked else ''}">{icon}</div>
+            <div class="step-circle {state}">{icon}</div>
             <div class="step-label">{step_info['label']}</div>
-            <div class="step-sub" style="{'color:#B85C2E;font-weight:700;' if is_locked else ''}">{sub_label}</div>
+            <div class="step-sub">{sub_label}</div>
         </div>
         """, unsafe_allow_html=True)
         if st.button(" ", key=f"nav_{i}", use_container_width=True):
@@ -596,260 +553,272 @@ elif step == 1:
         """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════
-# STEP 2 — CRUZAMENTOS TOWS
+# STEP 2 — DIRECIONADORES ESTRATÉGICOS
 # ══════════════════════════════════════════════════════════════════
 elif step == 2:
-    if not st.session_state.get("unlocked", False):
-        render_lock_screen("Cruzamentos TOWS")
-    else:
-        st.subheader("🔗 Cruzamentos TOWS que originaram os Objetivos")
-        st.caption("Cada cruzamento combina fatores internos (Força/Fraqueza) com fatores externos (Oportunidade/Ameaça) para gerar um objetivo estratégico.")
+    st.subheader("🧭 Direcionadores Estratégicos")
+    st.caption("Intenção estratégica de cada postura TOWS — bússola que orienta a formulação dos objetivos, não o objetivo em si.")
 
-        st.markdown("##### 🧭 Direcionadores Estratégicos")
-        st.caption("Resumo objetivo de cada postura, consolidado a partir do racional de validação dos objetivos de cada tipo — não é texto novo, é a essência da SWOT já registrada abaixo.")
-        DIRECIONADOR_COLOR = {"SO": DARK_BLUE, "WO": "#2980B9", "ST": ORANGE, "WT": "#B85C2E"}
-        dir_cols = st.columns(4)
-        for col, d in zip(dir_cols, DIRECIONADORES):
-            with col:
-                st.markdown(f"""
-                <div class="card-box" style="border-left-color:{DIRECIONADOR_COLOR[d['Tipo']]}; min-height:100%;">
-                    <span class="metric-badge" style="background-color:{DIRECIONADOR_COLOR[d['Tipo']]};">{d['Tipo']}</span>
-                    <h5 style="margin:8px 0 2px 0; color:{DIRECIONADOR_COLOR[d['Tipo']]};">{d['Nome']}</h5>
-                    <small style="color:#8A93A3;">{d['Subtitulo']}</small>
-                    <p style="font-size:12.5px; color:#334155; margin-top:8px;">{d['Texto']}</p>
-
-                </div>
-                """, unsafe_allow_html=True)
-
-        st.divider()
-        st.markdown("##### 📋 Cruzamentos individuais por objetivo")
-        tipo_labels = {"SO": "🟢 SO — Ofensiva", "WO": "🔵 WO — Reforço", "ST": "🟠 ST — Proteção", "WT": "🔴 WT — Defensiva"}
-        for _, row in tows_data.iterrows():
+    DIRECIONADOR_COLOR = {"SO": "#0D1B2A", "WO": "#2980B9", "ST": "#EC671C", "WT": "#B85C2E"}
+    TIPO_NOME = {"SO": "Crescimento", "WO": "Desenvolvimento", "ST": "Defesa", "WT": "Sobrevivência"}
+    dir_cols = st.columns(4)
+    for col, d in zip(dir_cols, DIRECIONADORES):
+        with col:
+            cor = DIRECIONADOR_COLOR[d["Tipo"]]
             st.markdown(f"""
-            <div class="card-box accent">
-                <span class="metric-badge">{tipo_labels.get(row['Tipo'], row['Tipo'])}</span>
-                <span class="metric-badge orange" style="margin-left:6px;">{row['Objetivo gerado']}</span>
-                <p style="margin-top:10px; margin-bottom:4px;"><b>Origem (interno):</b> {row['Origem']}</p>
-                <p style="margin-bottom:8px;"><b>Cruzado com (externo):</b> {row['Cruzado com']}</p>
-                <small style="color:#64748B;"><b>Direcionador gerado:</b> {row['Texto_direcionador']}</small>
+            <div class="card-box" style="border-left-color:{cor}; min-height:260px;">
+                <span class="metric-badge" style="background-color:{cor};">{d["Tipo"]}</span>
+                <h5 style="margin:8px 0 2px 0; color:{cor};">{d["Nome"]}</h5>
+                <small style="color:#8A93A3;">{d["Subtitulo"]}</small>
+                <p style="font-size:12.5px; color:#334155; margin-top:10px;">{d["Texto"]}</p>
             </div>
             """, unsafe_allow_html=True)
+
+    st.divider()
+    st.markdown("##### 📋 Cascata de Decisão — Cruzamentos que originaram cada direcionador")
+    TIPO_CONFIG = {
+        "SO": {"label": "🟢 SO — Crescimento",    "cor": "#2E8B3A"},
+        "WO": {"label": "🔵 WO — Desenvolvimento", "cor": "#2980B9"},
+        "ST": {"label": "🟠 ST — Defesa",          "cor": "#EC671C"},
+        "WT": {"label": "🔴 WT — Sobrevivência",   "cor": "#B85C2E"},
+    }
+    for _, row in tows_data.iterrows():
+        cfg = TIPO_CONFIG.get(row["Tipo"], {"label": row["Tipo"], "cor": "#0D1B2A"})
+        cor = cfg["cor"]
+        st.markdown(f"""
+        <div style="background:#FFFFFF; border-radius:12px; border-left:6px solid {cor};
+                    box-shadow:0 2px 8px rgba(13,27,42,0.07); padding:16px 20px; margin-bottom:14px;">
+            <div style="margin-bottom:10px;">
+                <span style="background:{cor}; color:#fff; padding:3px 12px; border-radius:20px;
+                             font-weight:700; font-size:11px;">{cfg["label"]}</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div style="background:#EEF2F6; border-radius:8px; padding:10px 14px;">
+                    <div style="font-size:10px; font-weight:700; color:#64748B; text-transform:uppercase; margin-bottom:4px;">Fator Interno</div>
+                    <div style="font-size:12px; color:#0D1B2A; white-space:pre-line;">{row["Origem"]}</div>
+                </div>
+                <div style="background:#FFF4EC; border-radius:8px; padding:10px 14px;">
+                    <div style="font-size:10px; font-weight:700; color:#64748B; text-transform:uppercase; margin-bottom:4px;">Fator Externo</div>
+                    <div style="font-size:12px; color:#0D1B2A; white-space:pre-line;">{row["Cruzado com"]}</div>
+                </div>
+            </div>
+            <div style="background:#F4F5F7; border-radius:8px; padding:10px 14px;">
+                <div style="font-size:10px; font-weight:700; color:#64748B; text-transform:uppercase; margin-bottom:4px;">↓ Direcionador</div>
+                <div style="font-size:12.5px; color:#0D1B2A; font-style:italic;">{row["Texto_direcionador"]}</div>
+            </div>
+            <div style="font-size:11px; color:#64748B; margin-top:8px;">
+                <b>Perspectiva gerada:</b> {row["Objetivo gerado"]}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════
 # STEP 3 — OBJETIVOS ESTRATÉGICOS
 # ══════════════════════════════════════════════════════════════════
 elif step == 3:
-    if not st.session_state.get("unlocked", False):
-        render_lock_screen("Objetivos Estratégicos")
-    else:
-        st.subheader("🎯 Objetivos Estratégicos (Formato BSC)")
-        st.markdown("""
-        <div class="source-card">
-        💡 <b>Alinhamento de escopo institucional:</b> o EPROC posiciona-se como <b>consultoria interna de negócios
-        e desburocratização</b>. O escritório mapeia, simplifica e entrega requisitos prontos — a codificação e o
-        desenvolvimento tecnológico permanecem sob responsabilidade dos times de TI/SCTI.
+    st.subheader("🎯 Objetivos Estratégicos — Perspectivas BSC")
+    st.markdown("""
+    <div class="source-card">
+    💡 <b>Alinhamento de escopo institucional:</b> o EPROC posiciona-se como <b>consultoria interna de negócios
+    e desburocratização</b>. O escritório mapeia, simplifica e entrega requisitos prontos para as equipes técnicas responsáveis pela implementação.
+    </div>
+    """, unsafe_allow_html=True)
+
+    dir_filter = st.multiselect(
+        "Filtrar por direcionador estratégico",
+        options=objetivos_data["Direcionador"].unique().tolist(),
+        default=objetivos_data["Direcionador"].unique().tolist()
+    )
+    obj_filtered = objetivos_data[objetivos_data["Direcionador"].isin(dir_filter)]
+
+    for _, row in obj_filtered.iterrows():
+        st.markdown(f"""
+        <div class="card-box">
+            <span class="metric-badge">{row['Perspectiva']}</span>
+            <span class="metric-badge orange" style="margin-left:6px;">{row['Direcionador']}</span>
+            <h4 style="margin-top:8px; margin-bottom:5px; color:#0D1B2A; font-family:'Bebas Neue'; letter-spacing:0.5px;">OBJETIVO {row['Nº']}</h4>
+            <p style="color:#334155;">{row['Objetivo']}</p>
         </div>
         """, unsafe_allow_html=True)
-
-        dir_filter = st.multiselect("Filtrar por direcionador estratégico", options=objetivos_data["Direcionador"].unique().tolist(),
-                                      default=objetivos_data["Direcionador"].unique().tolist())
-        obj_filtered = objetivos_data[objetivos_data["Direcionador"].isin(dir_filter)]
-
-        for _, row in obj_filtered.iterrows():
-            st.markdown(f"""
-            <div class="card-box">
-                <span class="metric-badge">{row['Perspectiva']}</span>
-                <span class="metric-badge orange" style="margin-left:6px;">{row['Direcionador']}</span>
-                <h4 style="margin-top: 8px; margin-bottom: 5px; color: {DARK_BLUE}; font-family:'Bebas Neue';letter-spacing:0.5px;">OBJETIVO {row['Nº']}</h4>
-                <p style="color: #334155;">{row['Objetivo']}</p>
-            </div>
-            """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════
 # STEP 4 — MAPA ESTRATÉGICO
 # ══════════════════════════════════════════════════════════════════
 elif step == 4:
-    if not st.session_state.get("unlocked", False):
-        render_lock_screen("Mapa Estratégico")
-    else:
-        st.subheader("🗺️ Mapa Estratégico")
+    st.subheader("🗺️ Mapa Estratégico")
+    st.markdown("""
+    <div class="source-card">
+    <b>Como ler este mapa:</b> os 5 objetivos estão organizados em 4 camadas de causa e efeito — de baixo para cima.
+    A cor evolui do azul escuro (fundação: Pessoas) ao laranja (resultado: Resultados).
+    Cada camada sustenta a superior: <b>Pessoas → Tecnologia/Governança → Processos Internos → Resultados.</b>
+    </div>
+    """, unsafe_allow_html=True)
 
-        st.markdown(f"""
-        <div class="source-card">
-        <b>O que é este mapa e como usá-lo:</b> os 7 objetivos estratégicos estão organizados em <b>4 camadas de
-        causa e efeito</b> — de baixo para cima. A cor evolui do azul escuro (fundação) ao laranja (resultado),
-        reforçando a leitura: <b>investir na base sustenta a capacidade, que viabiliza a operação, que gera o
-        resultado no topo.</b> Use o seletor abaixo para ver as conexões de um objetivo específico.
-        </div>
-        """, unsafe_allow_html=True)
+    layer_info = {
+        4: ("RESULTADOS 📈", "O que a sociedade e a alta gestão enxergam"),
+        3: ("PROCESSOS INTERNOS ⚙️", "O que o EPROC entrega no dia a dia"),
+        2: ("TECNOLOGIA E INOVAÇÃO 💻  |  GOVERNANÇA 🏛️", "O que viabiliza a operação e institucionaliza o EPROC"),
+        1: ("PESSOAS 👥", "O que sustenta tudo o resto"),
+    }
+    layers = {1: [], 2: [], 3: [], 4: []}
+    for _, row in objetivos_data.iterrows():
+        layers[PERSPECTIVA_LAYER[row["Perspectiva"]]].append(row)
 
-        layer_info = {
-            4: ("RESULTADOS 📈", "O que a sociedade e a alta gestão enxergam"),
-            3: ("PROCESSOS INTERNOS ⚙️", "O que o EPROC entrega no dia a dia"),
-            2: ("TECNOLOGIA E INOVAÇÃO 💻  |  GOVERNANÇA 🏛️", "O que viabiliza a operação e institucionaliza o EPROC"),
-            1: ("PESSOAS 👥", "O que sustenta tudo o resto"),
-        }
-        layers = {1: [], 2: [], 3: [], 4: []}
-        for _, row in objetivos_data.iterrows():
-            layers[PERSPECTIVA_LAYER[row["Perspectiva"]]].append(row)
+    for lvl in [4, 3, 2, 1]:
+        title, desc = layer_info[lvl]
+        st.markdown(
+            f'<div class="layer-header">{title} <span style="color:#8A93A3; font-family:\'Roboto Condensed\'; font-size:12px;">— {desc}</span></div>',
+            unsafe_allow_html=True
+        )
+        row_cols = st.columns(max(len(layers[lvl]), 1))
+        for c, row in zip(row_cols, layers[lvl]):
+            with c:
+                st.markdown(f"""<div class="node-card" style="background-color:{LAYER_COLORS[lvl]};">
+                    <div class="node-num">OBJ. {row['Nº']}</div>
+                    <div class="node-persp">{row['Perspectiva']}</div>
+                    </div>""", unsafe_allow_html=True)
+        if lvl > 1:
+            st.markdown('<div class="flow-arrow">⬆</div>', unsafe_allow_html=True)
 
-        for lvl in [4, 3, 2, 1]:
-            title, desc = layer_info[lvl]
-            st.markdown(f'<div class="layer-header">{title} <span style="color:#8A93A3;font-family:\'Roboto Condensed\';font-size:12px;">— {desc}</span></div>', unsafe_allow_html=True)
-            cols = st.columns(len(layers[lvl]))
-            for c, row in zip(cols, layers[lvl]):
-                color = LAYER_COLORS[lvl]
-                with c:
-                    st.markdown(f"""<div class="node-card" style="background-color:{color};">
-                        <div class="node-num">OBJ. {row['Nº']}</div>
-                        <div class="node-persp">{row['Perspectiva']}</div>
-                        </div>""", unsafe_allow_html=True)
-            if lvl > 1:
-                st.markdown('<div class="flow-arrow">⬆</div>', unsafe_allow_html=True)
+    st.divider()
+    st.markdown("##### 🔍 Explorar conexões de um objetivo")
+    obj_lookup = objetivos_data.set_index("Nº")["Perspectiva"].to_dict()
+    sel = st.selectbox(
+        "Selecionar objetivo",
+        options=objetivos_data["Nº"].tolist(),
+        format_func=lambda n: f"Objetivo {n} — {obj_lookup[n]}"
+    )
+    alimenta       = [(b, r) for a, b, r in CAUSAL_LINKS if int(a) == sel]
+    alimentado_por = [(a, r) for a, b, r in CAUSAL_LINKS if int(b) == sel]
 
-        st.divider()
-        st.markdown("##### 🔍 Explorar conexões de um objetivo")
-        obj_lookup = objetivos_data.set_index("Nº")["Perspectiva"].to_dict()
-        sel = st.selectbox("Selecionar objetivo", options=objetivos_data["Nº"].tolist(),
-                            format_func=lambda n: f"Objetivo {n} — {obj_lookup[n]}")
+    col_in, col_out = st.columns(2)
+    with col_in:
+        st.markdown(f"**⬅️ É alimentado por** ({len(alimentado_por)})")
+        if alimentado_por:
+            for a, r in alimentado_por:
+                st.markdown(f"""<div class="card-box" style="padding:12px 14px;">
+                    <b>Objetivo {a}</b> — {obj_lookup[int(a)]}<br>
+                    <small style="color:#64748B;">{r}</small></div>""", unsafe_allow_html=True)
+        else:
+            st.caption("Objetivo de base — não depende de outros.")
+    with col_out:
+        st.markdown(f"**➡️ Alimenta** ({len(alimenta)})")
+        if alimenta:
+            for b, r in alimenta:
+                st.markdown(f"""<div class="card-box accent" style="padding:12px 14px;">
+                    <b>Objetivo {b}</b> — {obj_lookup[int(b)]}<br>
+                    <small style="color:#64748B;">{r}</small></div>""", unsafe_allow_html=True)
+        else:
+            st.caption("Objetivo de topo — não alimenta outros.")
 
-        alimenta = [(b, r) for a, b, r in CAUSAL_LINKS if int(a) == sel]
-        alimentado_por = [(a, r) for a, b, r in CAUSAL_LINKS if int(b) == sel]
-
-        col_in, col_out = st.columns(2)
-        with col_in:
-            st.markdown(f"**⬅️ É alimentado por** ({len(alimentado_por)})")
-            if alimentado_por:
-                for a, r in alimentado_por:
-                    st.markdown(f"""<div class="card-box" style="padding:12px 14px;">
-                        <b>Objetivo {a}</b> — {obj_lookup[int(a)]}<br><small style="color:#64748B;">{r}</small>
-                        </div>""", unsafe_allow_html=True)
-            else:
-                st.caption("Nenhuma dependência de entrada mapeada — este é um objetivo de base.")
-        with col_out:
-            st.markdown(f"**➡️ Alimenta** ({len(alimenta)})")
-            if alimenta:
-                for b, r in alimenta:
-                    st.markdown(f"""<div class="card-box accent" style="padding:12px 14px;">
-                        <b>Objetivo {b}</b> — {obj_lookup[int(b)]}<br><small style="color:#64748B;">{r}</small>
-                        </div>""", unsafe_allow_html=True)
-            else:
-                st.caption("Nenhum objetivo dependente mapeado — este é um objetivo de topo.")
-
-        st.caption("🔁 Os objetivos de base (Pessoas, Governança, Tecnologia) sustentam a operação (Processos Internos) que gera os Resultados no topo.")
+    st.caption("🔁 Os objetivos de base (Pessoas, Governança, Tecnologia) sustentam a operação (Processos Internos) que gera os Resultados no topo.")
 
 # ══════════════════════════════════════════════════════════════════
 # STEP 5 — PLANO DE AÇÃO
 # ══════════════════════════════════════════════════════════════════
 elif step == 5:
-    if not st.session_state.get("unlocked", False):
-        render_lock_screen("Plano de Ação")
-    else:
-        st.subheader("📋 Plano de Ação por Objetivo")
-        st.markdown("""
-        <div class="note-card">
-        📝 Ações em fase de validação de prazos e responsáveis reais — os prazos abaixo (T1, T2...) são
-        relativos ao início do plano.
-        </div>
-        """, unsafe_allow_html=True)
+    st.subheader("📋 Plano de Ação por Objetivo")
+    st.markdown("""
+    <div class="note-card">
+    📝 Ações em fase de validação de prazos e responsáveis reais — os prazos abaixo (T1, T2...) são
+    relativos ao início do plano.
+    </div>
+    """, unsafe_allow_html=True)
 
-        if "status_acoes" not in st.session_state:
-            st.session_state["status_acoes"] = {}
+    if "status_acoes" not in st.session_state:
+        st.session_state["status_acoes"] = {}
 
-        for _, row in objetivos_data.iterrows():
-            with st.expander(f"Objetivo {row['Nº']} — {row['Perspectiva']}: {row['Objetivo'][:80]}..."):
-                for i, (titulo, resp, prazo) in enumerate(ACOES[row["Nº"]]):
-                    key = f"acao_{row['Nº']}_{i}"
-                    if key not in st.session_state["status_acoes"]:
-                        st.session_state["status_acoes"][key] = False
-                    checked = st.checkbox(f"**{titulo}**", value=st.session_state["status_acoes"][key], key=key)
-                    st.session_state["status_acoes"][key] = checked
-                    st.caption(f"👤 {resp} · 🗓️ {prazo}")
+    for _, row in objetivos_data.iterrows():
+        with st.expander(f"Objetivo {row['Nº']} — {row['Perspectiva']}: {row['Objetivo'][:80]}..."):
+            for i, (titulo, resp, prazo) in enumerate(ACOES[row["Nº"]]):
+                key = f"acao_{row['Nº']}_{i}"
+                if key not in st.session_state["status_acoes"]:
+                    st.session_state["status_acoes"][key] = False
+                checked = st.checkbox(f"**{titulo}**", value=st.session_state["status_acoes"][key], key=key)
+                st.session_state["status_acoes"][key] = checked
+                st.caption(f"👤 {resp} · 🗓️ {prazo}")
 
-        concluidos = sum(st.session_state["status_acoes"].values())
-        total = len(st.session_state["status_acoes"]) if st.session_state["status_acoes"] else 1
-        st.divider()
-        st.progress(concluidos / total)
-        st.caption(f"**Progresso geral do plano de ação:** {concluidos} de {total} iniciativas concluídas ({int(concluidos/total*100)}%)")
+    concluidos = sum(st.session_state["status_acoes"].values())
+    total = len(st.session_state["status_acoes"]) if st.session_state["status_acoes"] else 1
+    st.divider()
+    st.progress(concluidos / total)
+    st.caption(f"**Progresso geral do plano de ação:** {concluidos} de {total} iniciativas concluídas ({int(concluidos/total*100)}%)")
 
 # ══════════════════════════════════════════════════════════════════
 # STEP 6 — INDICADORES
 # ══════════════════════════════════════════════════════════════════
 elif step == 6:
-    if not st.session_state.get("unlocked", False):
-        render_lock_screen("Indicadores")
-    else:
-        st.subheader("📈 Indicadores por Objetivo")
+    st.subheader("📈 Indicadores por Objetivo")
 
-        obj_lookup_full = objetivos_data.set_index("Nº")
-        obj_select = st.selectbox("Selecionar objetivo", options=objetivos_data["Nº"].tolist(),
-                                   format_func=lambda n: f"Objetivo {n} — {obj_lookup_full.loc[n, 'Perspectiva']}")
+    obj_lookup_full = objetivos_data.set_index("Nº")
+    obj_select = st.selectbox("Selecionar objetivo", options=objetivos_data["Nº"].tolist(),
+                               format_func=lambda n: f"Objetivo {n} — {obj_lookup_full.loc[n, 'Perspectiva']}")
 
-        kpis = INDICADORES[obj_select]
-        kcols = st.columns(len(kpis))
-        for c, (nome, formula, meta, periodo, icon) in zip(kcols, kpis):
-            with c:
-                st.markdown(f"""
-                <div class="kpi-icon-card">
-                    <div class="kpi-icon">{icon}</div>
-                    <div class="kpi-title">{nome}</div>
-                    <div class="kpi-meta">📐 {formula}</div>
-                    <div class="kpi-meta">🎯 Meta: <b>{meta}</b></div>
-                    <div class="kpi-meta">🗓️ {periodo}</div>
-                </div>
-                """, unsafe_allow_html=True)
+    kpis = INDICADORES[obj_select]
+    kcols = st.columns(len(kpis))
+    for c, (nome, formula, meta, periodo, icon) in zip(kcols, kpis):
+        with c:
+            st.markdown(f"""
+            <div class="kpi-icon-card">
+                <div class="kpi-icon">{icon}</div>
+                <div class="kpi-title">{nome}</div>
+                <div class="kpi-meta">📐 {formula}</div>
+                <div class="kpi-meta">🎯 Meta: <b>{meta}</b></div>
+                <div class="kpi-meta">🗓️ {periodo}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.divider()
-        st.markdown("##### 🌡️ Leitura visual (ilustrativa até termos linha de base real)")
-        gauge_cols = st.columns(len(kpis))
-        for c, (nome, formula, meta, periodo, icon) in zip(gauge_cols, kpis):
-            with c:
-                fig = go.Figure(go.Indicator(
-                    mode="gauge+number",
-                    value=45,
-                    title={"text": nome[:28], "font": {"size": 13, "family": "Roboto Condensed"}},
-                    number={"suffix": "%", "font": {"color": DARK_BLUE}},
-                    gauge={
-                        "axis": {"range": [0, 100], "tickfont": {"size": 9}},
-                        "bar": {"color": ORANGE},
-                        "bgcolor": WHITE,
-                        "steps": [
-                            {"range": [0, 40], "color": "#F1F1F3"},
-                            {"range": [40, 75], "color": "#F4D9C6"},
-                        ],
-                    }
-                ))
-                fig.update_layout(height=200, margin=dict(l=10, r=10, t=40, b=10), paper_bgcolor=WHITE)
-                st.plotly_chart(fig, use_container_width=True)
+    st.divider()
+    st.markdown("##### 🌡️ Leitura visual (ilustrativa até termos linha de base real)")
+    gauge_cols = st.columns(len(kpis))
+    for c, (nome, formula, meta, periodo, icon) in zip(gauge_cols, kpis):
+        with c:
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=45,
+                title={"text": nome[:28], "font": {"size": 13, "family": "Roboto Condensed"}},
+                number={"suffix": "%", "font": {"color": DARK_BLUE}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickfont": {"size": 9}},
+                    "bar": {"color": ORANGE},
+                    "bgcolor": WHITE,
+                    "steps": [
+                        {"range": [0, 40], "color": "#F1F1F3"},
+                        {"range": [40, 75], "color": "#F4D9C6"},
+                    ],
+                }
+            ))
+            fig.update_layout(height=200, margin=dict(l=10, r=10, t=40, b=10), paper_bgcolor=WHITE)
+            st.plotly_chart(fig, use_container_width=True)
 
-        st.divider()
-        st.markdown("##### ⚡ Simulador de impacto — Objetivo 4 (Desburocratização)")
-        st.caption("Projeção ilustrativa a partir dos parâmetros ajustáveis abaixo — usar apenas como referência até termos dados reais de linha de base.")
+    st.divider()
+    st.markdown("##### ⚡ Simulador de impacto — Objetivo 4 (Desburocratização)")
+    st.caption("Projeção ilustrativa a partir dos parâmetros ajustáveis abaixo — usar apenas como referência até termos dados reais de linha de base.")
 
-        sim_col1, sim_col2 = st.columns([1, 2])
-        with sim_col1:
-            processos_ano = st.slider("Processos redesenhados / ano", 5, 50, 20, 5)
-            reducao_dias = st.slider("Redução média no tempo de tramitação (dias)", 5, 60, 25, 5)
-            horas_servidor = st.slider("Horas economizadas por processo/ano", 50, 500, 180, 10)
-        with sim_col2:
-            total_dias_salvos = processos_ano * reducao_dias
-            total_horas_poupadas = processos_ano * horas_servidor
-            equivalente_servidores = round(total_horas_poupadas / 1920, 1)
+    sim_col1, sim_col2 = st.columns([1, 2])
+    with sim_col1:
+        processos_ano = st.slider("Processos redesenhados / ano", 5, 50, 20, 5)
+        reducao_dias = st.slider("Redução média no tempo de tramitação (dias)", 5, 60, 25, 5)
+        horas_servidor = st.slider("Horas economizadas por processo/ano", 50, 500, 180, 10)
+    with sim_col2:
+        total_dias_salvos = processos_ano * reducao_dias
+        total_horas_poupadas = processos_ano * horas_servidor
+        equivalente_servidores = round(total_horas_poupadas / 1920, 1)
 
-            m1, m2, m3 = st.columns(3)
-            for col, icon, label, val in [
-                (m1, "📅", "Dias agilizados", f"{total_dias_salvos:,}"),
-                (m2, "⏱️", "Horas revertidas", f"{total_horas_poupadas:,} h"),
-                (m3, "🧑‍💼", "Equivalente em FTEs", f"~{equivalente_servidores}"),
-            ]:
-                col.markdown(f"""
-                <div class="kpi-icon-card" style="text-align:center;">
-                    <div class="kpi-icon">{icon}</div>
-                    <div class="kpi-title" style="font-size:22px;">{val}</div>
-                    <div class="kpi-meta">{label}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            st.info(f"Redesenhando **{processos_ano} processos/ano**, o EPROC libera o equivalente a **{equivalente_servidores} servidores em tempo integral** para atendimento direto ao cidadão.")
+        m1, m2, m3 = st.columns(3)
+        for col, icon, label, val in [
+            (m1, "📅", "Dias agilizados", f"{total_dias_salvos:,}"),
+            (m2, "⏱️", "Horas revertidas", f"{total_horas_poupadas:,} h"),
+            (m3, "🧑‍💼", "Equivalente em FTEs", f"~{equivalente_servidores}"),
+        ]:
+            col.markdown(f"""
+            <div class="kpi-icon-card" style="text-align:center;">
+                <div class="kpi-icon">{icon}</div>
+                <div class="kpi-title" style="font-size:22px;">{val}</div>
+                <div class="kpi-meta">{label}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        st.info(f"Redesenhando **{processos_ano} processos/ano**, o EPROC libera o equivalente a **{equivalente_servidores} servidores em tempo integral** para atendimento direto ao cidadão.")
 
 # ══════════════════════════════════════════════════════════════════
 # STEP 7 — METODOLOGIA & FONTES
