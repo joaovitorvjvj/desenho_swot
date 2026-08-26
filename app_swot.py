@@ -326,24 +326,30 @@ objetivos_data = pd.DataFrame([
     },
     {
         "Nº": 2,
-        "Perspectiva": "Processos Internos",
+        "Perspectiva": "Resultados",
         "Objetivo": "Atuar em 100% das iniciativas de automação priorizadas pelo Estado que demandem mapeamento ou análise de processos, com requisitos de negócio formalizados e entregáveis definidos.",
         "Direcionador": "Crescimento",
     },
     {
         "Nº": 3,
+        "Perspectiva": "Processos Internos",
+        "Objetivo": "Estruturar a operação interna do EPROC com papéis definidos, rituais de acompanhamento e visibilidade da carga de trabalho por membro da equipe.",
+        "Direcionador": "Crescimento",
+    },
+    {
+        "Nº": 4,
         "Perspectiva": "Pessoas",
         "Objetivo": "Ampliar em X% a capacidade de atendimento do EPROC sem aumento proporcional de equipe, por meio de padronização de métodos, automação de rotinas administrativas e fortalecimento da rede NUPROC.",
         "Direcionador": "Desenvolvimento",
     },
     {
-        "Nº": 4,
+        "Nº": 5,
         "Perspectiva": "Tecnologia e Inovação",
         "Objetivo": "Atualizar a metodologia EPROC anualmente, incorporando pelo menos 2 novas práticas ou ferramentas de gestão de processos a cada ciclo de atualização.",
         "Direcionador": "Crescimento",
     },
     {
-        "Nº": 5,
+        "Nº": 6,
         "Perspectiva": "Governança",
         "Objetivo": "Institucionalizar, por meio de normativo formal, a participação do EPROC em 100% das iniciativas de criação, reestruturação ou extinção de secretarias, diretorias e empresas públicas que envolvam revisão de processos.",
         "Direcionador": "Sobrevivência",
@@ -360,15 +366,20 @@ INDICADORES = {
         ("Aderência ao checklist de requisitos de negócio", "% de entregas com requisitos formalizados", "100%", "Contínua", "✅"),
     ],
     3: [
+        ("Taxa de demandas concluídas no prazo", "Demandas entregues no prazo / total de demandas iniciadas", "Meta a definir após baseline", "Trimestral", "📊"),
+        ("Distribuição de carga por colaborador", "Desvio padrão de demandas ativas por membro da equipe", "Reduzir vs. baseline", "Mensal", "⚖️"),
+        ("Rituais de acompanhamento realizados", "Reuniões internas realizadas / reuniões previstas", "100%", "Mensal", "🔄"),
+    ],
+    4: [
         ("Capacidade de atendimento por colaborador", "Demandas atendidas / nº de colaboradores ativos", "Ampliar X% vs. baseline", "Semestral", "📈"),
         ("Processos padronizados em playbook", "Fluxos documentados / total de fluxos críticos do EPROC", "100% dos fluxos críticos", "Anual", "📋"),
         ("NUPROCs com execução autônoma de mapeamentos", "NUPROCs autônomos / total de NUPROCs ativos", "Meta a definir", "Semestral", "🌐"),
     ],
-    4: [
+    5: [
         ("Novas práticas incorporadas por ciclo", "Práticas documentadas / ciclo de atualização", "≥ 2 por ano", "Anual", "🔎"),
         ("Versão da metodologia publicada", "Nº de revisões formais realizadas", "1 por ano", "Anual", "📘"),
     ],
-    5: [
+    6: [
         ("Normativo formal publicado", "Existência de decreto/instrução normativa vigente", "Publicado até 2027", "Marco único", "📜"),
         ("Iniciativas acompanhadas pelo EPROC após normativo", "Iniciativas com EPROC / total pós-publicação", "100%", "Semestral", "🏛️"),
     ],
@@ -386,16 +397,21 @@ ACOES = {
         ("Criar checklist padrão de levantamento de requisitos de negócio", "Equipe EPROC", "T1-T2"),
     ],
     3: [
+        ("Mapear e formalizar os papéis da equipe por tipo de entrega (quem lidera, executa e revisa)", "Coordenação EPROC", "T1"),
+        ("Implementar rituais periódicos de alinhamento interno com revisão de demandas e gargalos", "Gerência EPROC", "T1-T2"),
+        ("Monitorar carga de trabalho por colaborador para subsidiar decisões de priorização", "Gerência EPROC", "Contínuo"),
+    ],
+    4: [
         ("Mapear e padronizar os principais fluxos de trabalho do EPROC em playbooks reutilizáveis", "Equipe EPROC", "T1-T2"),
         ("Identificar e automatizar rotinas administrativas repetitivas (agendamentos, registros, relatórios)", "Equipe EPROC", "T2"),
         ("Ampliar a rede NUPROC com novos pontos focais capacitados para execução autônoma de mapeamentos", "Coordenação EPROC", "Contínuo"),
     ],
-    4: [
+    5: [
         ("Realizar benchmarking com metodologias de BPM (setor público e privado)", "Equipe EPROC", "Semestral"),
         ("Revisar e publicar nova versão da metodologia EPROC/SEPLAN", "Coordenação EPROC", "Anual"),
         ("Criar repositório interno de boas práticas por tipo de processo mapeado", "Equipe EPROC", "Contínuo"),
     ],
-    5: [
+    6: [
         ("Redigir minuta de normativo/decreto de participação obrigatória do EPROC", "Coordenação EPROC", "T1-T2"),
         ("Articular validação jurídica e política junto à SEPLAN e Casa Civil", "Coordenação + Gerência", "T2"),
         ("Elaborar playbook de atuação em processos de criação/reestruturação de órgãos", "Equipe EPROC", "T2-T3"),
@@ -403,12 +419,14 @@ ACOES = {
 }
 
 CAUSAL_LINKS = [
-    ("3", "2", "Bolsistas qualificados sustentam a capacidade de atuar em 100% das automações."),
-    ("3", "4", "Equipe capacitada viabiliza a atualização metodológica contínua."),
-    ("4", "2", "Metodologia atualizada é o instrumento da consultoria de negócio."),
-    ("5", "2", "Mandato formal garante que o EPROC seja acionado nas iniciativas de automação."),
-    ("2", "1", "Consultoria bem executada gera desburocratização mensurável."),
-    ("5", "1", "Institucionalização formal protege a continuidade e legitima os resultados."),
+    ("4", "3", "Capacidade de atendimento ampliada alimenta a operação estruturada internamente."),
+    ("3", "2", "Operação interna estruturada viabiliza atuar em 100% das iniciativas de automação."),
+    ("3", "1", "Operação interna eficiente gera entregas que comprovam redução de tempo e etapas."),
+    ("5", "2", "Metodologia atualizada é o instrumento da consultoria de negócio em automação."),
+    ("5", "3", "Metodologia padronizada sustenta os rituais e playbooks da operação interna."),
+    ("6", "2", "Mandato formal garante que o EPROC seja acionado nas iniciativas de automação."),
+    ("6", "1", "Institucionalização formal protege a continuidade e legitima os resultados."),
+    ("2", "1", "Cobertura das automações gera desburocratização mensurável nos processos finalísticos."),
 ]
 
 PERSPECTIVA_LAYER = {
