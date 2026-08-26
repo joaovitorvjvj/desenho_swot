@@ -244,8 +244,8 @@ tows_data = pd.DataFrame([
     {
         "Tipo": "WO",
         "Estratégia": "Desenvolvimento",
-        "Origem": "FRAQUEZAS\nQtd. servidores efetivos (4)\nRotatividade (3)",
-        "Cruzado com": "OPORTUNIDADES\nConcurso público (2)",
+        "Origem": "FRAQUEZAS\nQtd. servidores efetivos (4)\nRotatividade (3)\nDependência de outros órgãos (6)",
+        "Cruzado com": "OPORTUNIDADES\nFortalecimento da rede NUPROC (5)\nParcerias institucionais (5)",
         "Direcionador": "Desenvolvimento",
         "Texto_direcionador": "Fortalecer a estrutura interna do EPROC aproveitando as oportunidades disponíveis no curto prazo, reduzindo vulnerabilidades operacionais sem depender de soluções externas de prazo incerto.",
         "Objetivo gerado": "Pessoas",
@@ -360,8 +360,9 @@ INDICADORES = {
         ("Aderência ao checklist de requisitos de negócio", "% de entregas com requisitos formalizados", "100%", "Contínua", "✅"),
     ],
     3: [
-        ("Cobertura da trilha de onboarding", "Bolsistas com trilha concluída / total admitidos", "100%", "Contínua", "🎓"),
-        ("Rotatividade de bolsistas", "Saídas / média de bolsistas ativos no período", "Reduzir vs. baseline", "Semestral", "🔄"),
+        ("Capacidade de atendimento por colaborador", "Demandas atendidas / nº de colaboradores ativos", "Ampliar X% vs. baseline", "Semestral", "📈"),
+        ("Processos padronizados em playbook", "Fluxos documentados / total de fluxos críticos do EPROC", "100% dos fluxos críticos", "Anual", "📋"),
+        ("NUPROCs com execução autônoma de mapeamentos", "NUPROCs autônomos / total de NUPROCs ativos", "Meta a definir", "Semestral", "🌐"),
     ],
     4: [
         ("Novas práticas incorporadas por ciclo", "Práticas documentadas / ciclo de atualização", "≥ 2 por ano", "Anual", "🔎"),
@@ -385,9 +386,9 @@ ACOES = {
         ("Criar checklist padrão de levantamento de requisitos de negócio", "Equipe EPROC", "T1-T2"),
     ],
     3: [
-        ("Revisar critérios de seleção do edital FAPESC priorizando perfil técnico", "Coordenação EPROC", "T1"),
-        ("Estruturar trilha de onboarding técnico padronizado para novos bolsistas", "Gerência EPROC", "T1-T2"),
-        ("Implementar programa interno de capacitação continuada", "Equipe EPROC", "Contínuo"),
+        ("Mapear e padronizar os principais fluxos de trabalho do EPROC em playbooks reutilizáveis", "Equipe EPROC", "T1-T2"),
+        ("Identificar e automatizar rotinas administrativas repetitivas (agendamentos, registros, relatórios)", "Equipe EPROC", "T2"),
+        ("Ampliar a rede NUPROC com novos pontos focais capacitados para execução autônoma de mapeamentos", "Coordenação EPROC", "Contínuo"),
     ],
     4: [
         ("Realizar benchmarking com metodologias de BPM (setor público e privado)", "Equipe EPROC", "Semestral"),
@@ -748,25 +749,44 @@ elif step == 5:
 # STEP 6 — INDICADORES
 # ══════════════════════════════════════════════════════════════════
 elif step == 6:
-    st.subheader("📈 Indicadores por Objetivo")
+    st.subheader("📈 Indicadores de Desempenho por Objetivo")
+    st.caption("Todos os objetivos possuem indicadores propostos. Os valores de meta e linha de base serão definidos na fase de implementação.")
 
-    obj_lookup_full = objetivos_data.set_index("Nº")
-    obj_select = st.selectbox("Selecionar objetivo", options=objetivos_data["Nº"].tolist(),
-                               format_func=lambda n: f"Objetivo {n} — {obj_lookup_full.loc[n, 'Perspectiva']}")
+    PERSP_COR = {
+        "Resultados": "#EC671C",
+        "Processos Internos": "#0D1B2A",
+        "Pessoas": "#2980B9",
+        "Tecnologia e Inovação": "#3D4F63",
+        "Governança": "#B85C2E",
+    }
 
-    kpis = INDICADORES[obj_select]
-    kcols = st.columns(len(kpis))
-    for c, (nome, formula, meta, periodo, icon) in zip(kcols, kpis):
-        with c:
+    for _, row in objetivos_data.iterrows():
+        kpis = INDICADORES[row["Nº"]]
+        persp_key = row["Perspectiva"].replace(" 📈","").replace(" ⚙️","").replace(" 👥","").replace(" 💻","").replace(" 🏛️","")
+        cor = PERSP_COR.get(persp_key, "#0D1B2A")
+
+        with st.expander(f"OBJ. {row['Nº']} — {row['Perspectiva']}  ·  {row['Objetivo'][:70]}...", expanded=True):
             st.markdown(f"""
-            <div class="kpi-icon-card">
-                <div class="kpi-icon">{icon}</div>
-                <div class="kpi-title">{nome}</div>
-                <div class="kpi-meta">📐 {formula}</div>
-                <div class="kpi-meta">🎯 Meta: <b>{meta}</b></div>
-                <div class="kpi-meta">🗓️ {periodo}</div>
+            <div style="background:#F4F5F7; border-radius:8px; padding:10px 14px; margin-bottom:12px; border-left:4px solid {cor};">
+                <div style="font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase;">Objetivo completo</div>
+                <div style="font-size:13px; color:#0D1B2A; margin-top:4px;">{row['Objetivo']}</div>
             </div>
             """, unsafe_allow_html=True)
+
+            kpi_cols = st.columns(len(kpis))
+            for col, (nome, formula, meta, periodo, icon) in zip(kpi_cols, kpis):
+                with col:
+                    st.markdown(f"""
+                    <div style="background:#FFFFFF; border-radius:10px; padding:14px;
+                                box-shadow:0 2px 8px rgba(13,27,42,0.08); border-top:4px solid {cor}; height:100%;">
+                        <div style="font-size:22px; margin-bottom:6px;">{icon}</div>
+                        <div style="font-family:'Bebas Neue'; font-size:15px; color:#0D1B2A; letter-spacing:0.5px; margin-bottom:8px;">{nome}</div>
+                        <div style="font-size:11px; color:#64748B; margin-bottom:4px;">📐 <b>Fórmula:</b> {formula}</div>
+                        <div style="font-size:11px; color:#64748B; margin-bottom:4px;">🎯 <b>Meta:</b> {meta}</div>
+                        <div style="font-size:11px; color:#64748B;">🗓️ <b>Periodicidade:</b> {periodo}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            st.write("")
 
     st.divider()
     st.markdown("##### 🌡️ Leitura visual (ilustrativa até termos linha de base real)")
